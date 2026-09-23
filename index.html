@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Hoornbeeck College Gouda — vind je bestemming met de Gebouwenroute.">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
   <title>Gebouwenroute — Hoornbeeck College</title>
 </head>
 <body>
@@ -23,7 +23,7 @@
     <main id="app">
       <section class="view active" data-view="home" id="home">
         <div class="hero-card">
-          <img src="assets/gebouwroute-hero.png" alt="Het gebouw van Hoornbeeck College in Gouda">
+          <img src="./assets/gebouwroute-hero.png" alt="Het gebouw van Hoornbeeck College in Gouda">
           <div class="hero-overlay"></div>
           <div class="hero-content">
             <span class="eyebrow">Hoornbeeck College · Gouda</span>
@@ -36,16 +36,16 @@
         <div class="section-heading">
           <div>
             <span class="eyebrow cyan">Jouw volgende stop</span>
-            <h2>A0.15 <small>Lokaal</small></h2>
+            <h2>A.0.15 <small>Restaurant</small></h2>
           </div>
           <span class="walk-pill">🚶 2 min</span>
         </div>
 
-        <button class="destination-card" data-go="route">
-          <div class="destination-thumb"><img src="assets/gebouwroute-hero.png" alt=""></div>
+        <button class="destination-card" data-room="A.0.15" data-floor="0">
+          <div class="destination-thumb"><img src="./assets/gebouwroute-hero.png" alt=""></div>
           <div class="destination-copy">
-            <strong>Route naar A0.15</strong>
-            <span>Begane grond · hoofdgebouw</span>
+            <strong>Route naar A.0.15</strong>
+            <span>Begane grond · restaurant</span>
             <small>Bekijk route <b>›</b></small>
           </div>
         </button>
@@ -66,16 +66,19 @@
 
         <div class="floor-tabs" id="floorTabs" role="tablist" aria-label="Verdieping kiezen">
           <button data-floor="-1" role="tab">-1<small>Kelder</small></button>
-          <button data-floor="0" role="tab" aria-selected="true" class="active">BG<small>Beganegrond</small></button>
+          <button data-floor="0" role="tab" aria-selected="true" class="active">BG<small>Begane grond</small></button>
           <button data-floor="1" role="tab">1<small>Verd. 1</small></button>
           <button data-floor="2" role="tab">2<small>Verd. 2</small></button>
           <button data-floor="3" role="tab">3<small>Verd. 3</small></button>
           <button data-floor="4" role="tab">4<small>Verd. 4</small></button>
+          <button data-floor="5" role="tab">5<small>Verd. 5</small></button>
+          <button data-floor="6" role="tab">6<small>Verd. 6</small></button>
+          <button data-floor="7" role="tab">7<small>Verd. 7</small></button>
         </div>
 
         <div class="floorplan-wrap" id="floorplanWrap">
           <div class="floorplan-canvas" id="floorplanCanvas">
-            <svg id="floorplanImg" xmlns="http://www.w3.org/2000/svg" width="1000" height="760" viewBox="0 0 1000 760" role="img" aria-label="Plattegrond"></svg>
+            <svg id="floorplanImg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Plattegrond"></svg>
             <div class="marker accuracy" id="accuracyMarker" hidden></div>
             <div class="marker me" id="meMarker" hidden><i></i></div>
             <div class="marker pin" id="pinMarker" hidden>📍</div>
@@ -118,12 +121,7 @@
         </div>
         <div class="photo-card"><img src="assets/aula.png" alt="Aula van het Hoornbeeck College"><div><span>Hoofdgebouw</span><h2>Gouda</h2></div></div>
         <div class="search"><span>⌕</span><input id="buildingSearch" placeholder="Zoek lokaal of verdieping..." autocomplete="off"></div>
-        <div class="building-list" id="buildingList">
-          <button class="building-row" data-search="a0.15 begane grond lokaal"><span class="floor">0</span><div><b>A0.15</b><small>Begane grond · lokaal</small></div><i>›</i></button>
-          <button class="building-row" data-search="a1.12 eerste verdieping lokaal"><span class="floor">1</span><div><b>A1.12</b><small>1e verdieping · lokaal</small></div><i>›</i></button>
-          <button class="building-row" data-search="b2.04 tweede verdieping lokaal"><span class="floor">2</span><div><b>B2.04</b><small>2e verdieping · lokaal</small></div><i>›</i></button>
-          <button class="building-row" data-search="kantine aula eten pauze"><span class="floor">G</span><div><b>Kantine</b><small>Begane grond · pauze</small></div><i>›</i></button>
-        </div>
+        <div class="building-list" id="buildingList"></div>
       </section>
 
       <section class="view" data-view="badges" id="badges">

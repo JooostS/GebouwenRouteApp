@@ -1,7 +1,8 @@
-const CACHE = "hoornbeeck-route-v1";
+const CACHE = "hoornbeeck-route-v2"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
 const ASSETS = [
   "./", "./index.html", "./style.css", "./app.js", "./manifest.json", "./icon.svg",
-  "./assets/gebouwroute-hero.png", "./assets/app-overview.png", "./assets/aula.png"
+  "./assets/gebouwroute-hero.png", "./assets/app-overview.png", "./assets/aula.png",
+  "./kaarten/index.json", ...["-1", "0", "1", "2", "3", "4", "5", "6", "7"].map(f => `./kaarten/${f}.svg`)
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
