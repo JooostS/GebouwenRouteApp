@@ -24,10 +24,12 @@ const initial = location.hash.slice(1);
 if(initial && document.querySelector(`[data-view="${initial}"]`)) showView(initial, false);
 else showView("home", false);
 
+// "A.1.01", "a1.01" en "a101" moeten allemaal matchen: puntjes en spaties tellen niet mee
+const searchKey = s => s.toLowerCase().replace(/[.\s]/g, "");
 const search = document.querySelector("#buildingSearch");
 if(search){
   search.addEventListener("input", () => {
-    const q = search.value.toLowerCase().trim();
+    const q = searchKey(search.value);
     document.querySelectorAll(".building-row").forEach(row => {
       row.hidden = q && !row.dataset.search.includes(q);
     });
@@ -47,7 +49,7 @@ fetch("kaarten/index.json").then(r => r.json()).then(floors => {
   const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   buildingList.innerHTML = Object.entries(floors)
     .sort(([a], [b]) => a - b)
-    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(`${r.code} ${r.code.replace(/\./g, "")} ${r.name} ${fl.label}`.toLowerCase())}"><span class="floor">${f === "0" ? "BG" : f}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div><i>›</i></button>`))
+    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><span class="floor">${f === "0" ? "BG" : f}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div><i>›</i></button>`))
     .join("");
 }).catch(() => { buildingList.innerHTML = `<p class="map-hint">Lokalenlijst kon niet geladen worden.</p>`; });
 
