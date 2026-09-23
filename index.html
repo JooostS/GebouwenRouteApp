@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="description" content="Hoornbeeck College Gouda — vind je bestemming met de Gebouwenroute.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <title>Gebouwenroute — Hoornbeeck College</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="Hoornbeeck College, naar home">
+        <span class="brand-mark" aria-hidden="true"><i></i><b></b><em></em></span>
+        <span><strong>Hoornbeeck</strong><small>College · Gouda</small></span>
+      </a>
+      <button class="icon-btn" id="installBtn" hidden aria-label="App installeren">↓</button>
+    </header>
+
+    <main id="app">
+      <section class="view active" data-view="home" id="home">
+        <div class="hero-card">
+          <img src="assets/gebouwroute-hero.png" alt="Het gebouw van Hoornbeeck College in Gouda">
+          <div class="hero-overlay"></div>
+          <div class="hero-content">
+            <span class="eyebrow">Hoornbeeck College · Gouda</span>
+            <h1>Gebouwenroute</h1>
+            <p>Ontdek je route.<br>Vind je bestemming.</p>
+            <button class="primary-btn" data-go="route">Start route <span>→</span></button>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow cyan">Jouw volgende stop</span>
+            <h2>A0.15 <small>Lokaal</small></h2>
+          </div>
+          <span class="walk-pill">🚶 2 min</span>
+        </div>
+
+        <button class="destination-card" data-go="route">
+          <div class="destination-thumb"><img src="assets/gebouwroute-hero.png" alt=""></div>
+          <div class="destination-copy">
+            <strong>Route naar A0.15</strong>
+            <span>Begane grond · hoofdgebouw</span>
+            <small>Bekijk route <b>›</b></small>
+          </div>
+        </button>
+
+        <div class="quick-grid">
+          <button class="quick-card" data-go="buildings"><span class="quick-icon">⌖</span><b>Gebouwen</b><small>Bekijk locaties</small></button>
+          <button class="quick-card" data-go="badges"><span class="quick-icon purple">✦</span><b>Badges</b><small>Verzamel XP</small></button>
+          <button class="quick-card" data-go="info"><span class="quick-icon green">i</span><b>Informatie</b><small>Hulp & contact</small></button>
+        </div>
+      </section>
+
+      <section class="view" data-view="route" id="route">
+        <div class="page-head">
+          <button class="back-btn" data-go="home">‹</button>
+          <div><span class="eyebrow cyan">Navigatie</span><h1>Gebouwenroute</h1></div>
+          <button class="icon-btn" id="locateBtn" aria-label="Zoek mijn live locatie">◉</button>
+        </div>
+
+        <div class="floor-tabs" id="floorTabs" role="tablist" aria-label="Verdieping kiezen">
+          <button data-floor="-1" role="tab">-1<small>Kelder</small></button>
+          <button data-floor="0" role="tab" aria-selected="true" class="active">BG<small>Beganegrond</small></button>
+          <button data-floor="1" role="tab">1<small>Verd. 1</small></button>
+          <button data-floor="2" role="tab">2<small>Verd. 2</small></button>
+          <button data-floor="3" role="tab">3<small>Verd. 3</small></button>
+          <button data-floor="4" role="tab">4<small>Verd. 4</small></button>
+        </div>
+
+        <div class="floorplan-wrap" id="floorplanWrap">
+          <div class="floorplan-canvas" id="floorplanCanvas">
+            <svg id="floorplanImg" xmlns="http://www.w3.org/2000/svg" width="1000" height="760" viewBox="0 0 1000 760" role="img" aria-label="Plattegrond"></svg>
+            <div class="marker accuracy" id="accuracyMarker" hidden></div>
+            <div class="marker me" id="meMarker" hidden><i></i></div>
+            <div class="marker pin" id="pinMarker" hidden>📍</div>
+          </div>
+          <div class="floorplan-zoom">
+            <button id="zoomIn" aria-label="Inzoomen">+</button>
+            <button id="zoomOut" aria-label="Uitzoomen">−</button>
+            <button id="zoomReset" aria-label="Reset weergave">⤢</button>
+          </div>
+        </div>
+
+        <p class="map-hint" id="mapHint">Tik op de plattegrond om een punt te markeren. Sleep om te verslepen, knijp of scroll om te zoomen.</p>
+
+        <div class="tip-banner" id="gpsTip">
+          <span class="tip-icon">💡</span>
+          <div><b>Voor de beste GPS-nauwkeurigheid</b><small>Zet locatietoegang op "hoge nauwkeurigheid" en sta zo mogelijk dicht bij een raam of buiten tijdens het kalibreren. Wifi uitzetten helpt niet — je telefoon gebruikt wifi juist om binnenshuis je positie te verbeteren.</small></div>
+        </div>
+
+        <div class="gps-card" id="gpsCard">
+          <div class="gps-status">
+            <span class="gps-dot" id="gpsDot"></span>
+            <div>
+              <b id="gpsStatusText">Live locatie uitgeschakeld</b>
+              <small id="gpsAccuracyText">Tik op ◉ hierboven om je live locatie op de kaart te tonen.</small>
+            </div>
+          </div>
+          <button class="ghost-btn" id="calibrateBtn">Kalibreer GPS op deze verdieping</button>
+          <div class="calibrate-box" id="calibrateBox" hidden>
+            <p id="calibrateInstruction">Stap 1 van 2 — Ga fysiek naar een herkenbaar punt (bijv. de hoofdingang), tik dat punt aan op de plattegrond en druk daarna op "Leg GPS vast".</p>
+            <button class="primary-btn wide" id="calibrateCapture">Leg GPS vast op getikt punt</button>
+            <button class="ghost-btn" id="calibrateCancel">Annuleren</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" data-view="buildings" id="buildings">
+        <div class="page-head">
+          <button class="back-btn" data-go="home">‹</button>
+          <div><span class="eyebrow cyan">Locaties</span><h1>Gebouwen</h1></div>
+        </div>
+        <div class="photo-card"><img src="assets/aula.png" alt="Aula van het Hoornbeeck College"><div><span>Hoofdgebouw</span><h2>Gouda</h2></div></div>
+        <div class="search"><span>⌕</span><input id="buildingSearch" placeholder="Zoek lokaal of verdieping..." autocomplete="off"></div>
+        <div class="building-list" id="buildingList">
+          <button class="building-row" data-search="a0.15 begane grond lokaal"><span class="floor">0</span><div><b>A0.15</b><small>Begane grond · lokaal</small></div><i>›</i></button>
+          <button class="building-row" data-search="a1.12 eerste verdieping lokaal"><span class="floor">1</span><div><b>A1.12</b><small>1e verdieping · lokaal</small></div><i>›</i></button>
+          <button class="building-row" data-search="b2.04 tweede verdieping lokaal"><span class="floor">2</span><div><b>B2.04</b><small>2e verdieping · lokaal</small></div><i>›</i></button>
+          <button class="building-row" data-search="kantine aula eten pauze"><span class="floor">G</span><div><b>Kantine</b><small>Begane grond · pauze</small></div><i>›</i></button>
+        </div>
+      </section>
+
+      <section class="view" data-view="badges" id="badges">
+        <div class="page-head">
+          <button class="back-btn" data-go="home">‹</button>
+          <div><span class="eyebrow cyan">Gamification</span><h1>Badges</h1></div>
+        </div>
+        <div class="xp-card">
+          <div class="level-ring"><span>5</span><small>LEVEL</small></div>
+          <div><span>Jouw voortgang</span><h2>275 <small>/ 500 XP</small></h2><div class="progress"><i style="width:55%"></i></div><small>225 XP tot level 6</small></div>
+        </div>
+        <div class="section-heading compact"><div><span class="eyebrow cyan">Collectie</span><h2>Badges</h2></div><span class="counter">12 / 25</span></div>
+        <div class="badge-grid">
+          <button class="badge unlocked"><span>⌖</span><b>Route gestart</b><small>+25 XP</small></button>
+          <button class="badge unlocked purple"><span>◆</span><b>Ontdekker</b><small>+50 XP</small></button>
+          <button class="badge unlocked green"><span>✓</span><b>Op tijd</b><small>+25 XP</small></button>
+          <button class="badge locked"><span>✦</span><b>Verdieping 2</b><small>Vergrendeld</small></button>
+          <button class="badge locked"><span>◈</span><b>Lokalen 10×</b><small>Vergrendeld</small></button>
+          <button class="badge locked"><span>★</span><b>Legende</b><small>Level 25</small></button>
+        </div>
+      </section>
+
+      <section class="view" data-view="profile" id="profile">
+        <div class="page-head">
+          <button class="back-btn" data-go="home">‹</button>
+          <div><span class="eyebrow cyan">Jouw account</span><h1>Profiel</h1></div>
+        </div>
+        <div class="profile-card"><div class="avatar">JS</div><div><h2>De Student</h2><span>Level 5 Verkenner</span></div><b>275 XP</b></div>
+        <div class="profile-progress"><div class="progress"><i style="width:55%"></i></div><small>275 / 500 XP</small></div>
+        <div class="settings-list">
+          <button><span>◷</span><div><b>Statistieken</b><small>Jouw route-activiteit</small></div><i>›</i></button>
+          <button><span>✦</span><div><b>Badges</b><small>12 van 25 verzameld</small></div><i>›</i></button>
+          <button><span>⌖</span><div><b>Ontdekte locaties</b><small>23 van 56 locaties</small></div><i>›</i></button>
+          <button><span>⚙</span><div><b>Instellingen</b><small>Voorkeuren & privacy</small></div><i>›</i></button>
+        </div>
+      </section>
+
+      <section class="view" data-view="info" id="info">
+        <div class="page-head">
+          <button class="back-btn" data-go="home">‹</button>
+          <div><span class="eyebrow cyan">Hulp</span><h1>Informatie</h1></div>
+        </div>
+        <div class="info-hero"><span class="info-logo">H</span><h2>Hoornbeeck College</h2><p>Gebouwenroute · Gouda</p></div>
+        <div class="info-list">
+          <button><span>?</span><div><b>Hoe werkt het?</b><small>Alles over de gebouwenroute</small></div><i>›</i></button>
+          <button><span>⌖</span><div><b>Over de gebouwenroute</b><small>Versie 1.0 · Gouda</small></div><i>›</i></button>
+          <button><span>♧</span><div><b>Privacy & veiligheid</b><small>Lees ons privacybeleid</small></div><i>›</i></button>
+          <button><span>✉</span><div><b>Contact & feedback</b><small>Help ons de app verbeteren</small></div><i>›</i></button>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Hoofdnavigatie">
+      <button data-go="route" data-nav="route"><span>⌖</span><small>Route</small></button>
+      <button data-go="buildings" data-nav="buildings"><span>▦</span><small>Gebouwen</small></button>
+      <button data-go="badges" data-nav="badges"><span>✦</span><small>Badges</small></button>
+      <button data-go="profile" data-nav="profile"><span>●</span><small>Profiel</small></button>
+      <button data-go="info" data-nav="info"><span>i</span><small>Info</small></button>
+    </nav>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

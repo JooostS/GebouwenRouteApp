@@ -1,0 +1,20 @@
+{
+  "name": "Hoornbeeck Gebouwenroute",
+  "short_name": "Gebouwenroute",
+  "description": "Vind je bestemming op het Hoornbeeck College in Gouda.",
+  "lang": "nl-NL",
+  "start_url": "./index.html#home",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050c17",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
