@@ -73,10 +73,27 @@ main{padding:16px}.view{display:none;animation:fade .3s cubic-bezier(.2,.7,.2,1)
 .gps-dot.on{background:var(--green);box-shadow:0 0 0 4px rgba(57,217,138,.18)}
 .gps-dot.error{background:#ff5c5c;box-shadow:0 0 0 4px rgba(255,92,92,.18)}
 .ghost-btn{background:transparent;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:11px;font-weight:700;color:var(--cyan);text-align:center}
-.calibrate-box{display:grid;gap:8px;padding-top:8px;border-top:1px solid var(--line)}
-.calibrate-box p{font-size:11px;line-height:1.5}
 
 @media (min-width:700px){body{padding:24px}.app-shell{max-width:600px;border:1px solid #17293f;border-radius:30px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.03)}.bottom-nav{position:absolute;border-radius:0 0 30px 30px}.topbar{position:sticky}.hero-card{height:470px}.floorplan-wrap{height:min(58vh,600px)}}
 @media (min-width:900px){body{display:flex;align-items:center;min-height:100vh;padding:32px}.app-shell{margin:auto}}
 @media (max-width:370px){main{padding:12px}.hero-card{height:400px}.hero-content h1{font-size:28px}.quick-card{padding:11px 8px}.badge-grid{gap:6px}.floorplan-wrap{height:52vh}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+/* route (zoals Google Maps): blauwe lijn met lichte rand, schermvaste dikte via --k */
+.mp-route polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mp-route-casing{stroke:#dff4ff;stroke-width:calc(9px * var(--k,1));opacity:.9}
+.mp-route-line{stroke:var(--blue);stroke-width:calc(5.5px * var(--k,1))}
+.mp-thin{opacity:.6}
+.marker.start{width:18px;height:18px;border-radius:50%;background:#fff;border:5px solid var(--blue);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.route-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.route-actions .wide{grid-column:1/-1;margin-top:0}
+.route-info h2{font-size:17px;margin:0 0 4px}
+.route-info .route-title span:not(.route-icon){font-size:11.5px;color:var(--muted);line-height:1.5}
+
+/* locatieknop rechtsboven: tekst + pictogram, en duidelijk "aan" als live locatie loopt */
+.locate-pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 11px;border:1px solid var(--line);border-radius:99px;background:var(--panel);font-size:12px;font-weight:800;color:var(--text);white-space:nowrap}
+.locate-icon{position:relative;width:16px;height:16px;border-radius:50%;border:2px solid currentColor;flex:none}
+.locate-icon:after{content:"";position:absolute;inset:3px;border-radius:50%;background:currentColor}
+.locate-pill.on{background:rgba(19,151,255,.16);border-color:var(--blue);color:#9fd2ff}
+.locate-pill.on .locate-icon{animation:locate-pulse 1.6s ease-out infinite}
+@keyframes locate-pulse{0%{box-shadow:0 0 0 0 rgba(19,151,255,.6)}100%{box-shadow:0 0 0 9px rgba(19,151,255,0)}}
+.gps-card .primary-btn.on{background:linear-gradient(135deg,#2a3b52,#1b2a3d);box-shadow:none}

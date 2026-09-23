@@ -61,7 +61,7 @@
         <div class="page-head">
           <button class="back-btn" data-go="home">‹</button>
           <div><span class="eyebrow cyan">Navigatie</span><h1>Gebouwenroute</h1></div>
-          <button class="icon-btn" id="locateBtn" aria-label="Zoek mijn live locatie">◉</button>
+          <button class="locate-pill" id="locateBtn" data-locate aria-pressed="false"><span class="locate-icon" aria-hidden="true"></span><span class="locate-label">Mijn locatie</span></button>
         </div>
 
         <div class="floor-tabs" id="floorTabs" role="tablist" aria-label="Verdieping kiezen">
@@ -81,6 +81,7 @@
             <div class="marker accuracy" id="accuracyMarker" hidden></div>
             <div class="marker me" id="meMarker" hidden><i></i></div>
             <div class="marker pin" id="pinMarker" hidden>📍</div>
+            <div class="marker start" id="startMarker" hidden></div>
           </div>
           <div class="floorplan-zoom">
             <button id="zoomIn" aria-label="Inzoomen">+</button>
@@ -89,11 +90,23 @@
           </div>
         </div>
 
-        <p class="map-hint" id="mapHint">Tik op de plattegrond om een punt te markeren. Sleep om te verslepen, knijp of scroll om te zoomen.</p>
+        <p class="map-hint" id="mapHint">Tik op de kaart waar je nu bent. Sleep om te verschuiven, knijp of scroll om te zoomen.</p>
+
+        <div class="route-info" id="routeCard">
+          <div class="route-title">
+            <span class="route-icon">⌖</span>
+            <div><h2 id="routeTitle">Waar wil je heen?</h2><span id="routeMeta">Kies een lokaal om een route te krijgen.</span></div>
+          </div>
+          <div class="route-actions">
+            <button class="primary-btn wide" id="routeNext" hidden></button>
+            <button class="ghost-btn" id="routePick">Kies bestemming</button>
+            <button class="ghost-btn" id="routeStop" hidden>Stop route</button>
+          </div>
+        </div>
 
         <div class="tip-banner" id="gpsTip">
           <span class="tip-icon">💡</span>
-          <div><b>Voor de beste GPS-nauwkeurigheid</b><small>Zet locatietoegang op "hoge nauwkeurigheid" en sta zo mogelijk dicht bij een raam of buiten tijdens het kalibreren. Wifi uitzetten helpt niet — je telefoon gebruikt wifi juist om binnenshuis je positie te verbeteren.</small></div>
+          <div><b>Voor de beste locatie</b><small>Laat wifi áán en zet locatie op "hoge nauwkeurigheid". Binnen komt GPS slecht door; je telefoon bepaalt je positie dan vooral met wifi. Kies zelf de verdieping waar je bent.</small></div>
         </div>
 
         <div class="gps-card" id="gpsCard">
@@ -101,15 +114,10 @@
             <span class="gps-dot" id="gpsDot"></span>
             <div>
               <b id="gpsStatusText">Live locatie uitgeschakeld</b>
-              <small id="gpsAccuracyText">Tik op ◉ hierboven om je live locatie op de kaart te tonen.</small>
+              <small id="gpsAccuracyText">Zet je live locatie aan om jezelf als blauwe stip op de kaart te zien.</small>
             </div>
           </div>
-          <button class="ghost-btn" id="calibrateBtn">Kalibreer GPS op deze verdieping</button>
-          <div class="calibrate-box" id="calibrateBox" hidden>
-            <p id="calibrateInstruction">Stap 1 van 2 — Ga fysiek naar een herkenbaar punt (bijv. de hoofdingang), tik dat punt aan op de plattegrond en druk daarna op "Leg GPS vast".</p>
-            <button class="primary-btn wide" id="calibrateCapture">Leg GPS vast op getikt punt</button>
-            <button class="ghost-btn" id="calibrateCancel">Annuleren</button>
-          </div>
+          <button class="primary-btn wide" data-locate><span class="locate-label">Live locatie aanzetten</span><span>→</span></button>
         </div>
       </section>
 
@@ -182,6 +190,7 @@
     </nav>
   </div>
   <div class="toast" id="toast" role="status"></div>
+  <script src="route.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
