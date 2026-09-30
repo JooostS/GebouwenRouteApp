@@ -121,7 +121,8 @@ if(floorplanWrap && floorplanImg){
     mapW = +svg.getAttribute("width");
     mapH = +svg.getAttribute("height");
     ["viewBox", "width", "height"].forEach(a => floorplanImg.setAttribute(a, svg.getAttribute(a)));
-    floorplanImg.replaceChildren(...[...svg.childNodes].map(n => document.importNode(n, true)));
+    // mp-nav (de originele muren voor de routeplanner) hoeft niet in de DOM: alleen tekenen wat je ziet
+    floorplanImg.replaceChildren(...[...svg.childNodes].filter(n => !n.classList?.contains("mp-nav")).map(n => document.importNode(n, true)));
     floorplanImg.setAttribute("aria-label", `Plattegrond ${tab?.querySelector("small")?.textContent || ""}`);
     fitToContainer();
     renderPin();
@@ -465,8 +466,8 @@ if(floorplanWrap && floorplanImg){
 
   const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), floorIndex]).then(([text, idx]) => {
     const [, w, h] = text.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
-    const walls = text.match(/class="mp-walls" d="([^"]*)"/)[1];
-    const thin = (text.match(/class="mp-walls mp-thin" d="([^"]*)"/) || [, ""])[1];
+    const walls = text.match(/class="mp-nav" d="([^"]*)"/)[1];
+    const thin = (text.match(/class="mp-nav mp-thin" d="([^"]*)"/) || [, ""])[1];
     return gridReady[f] = Route.buildGrid(walls, thin, idx[f].doors || [], +w, +h, idx[f].geo.pxPerMeter, idx[f].openings || []);
   });
   const stairsOf = f => stairs[f] ??= loadFloorSvg(f).then(text =>
