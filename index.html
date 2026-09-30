@@ -23,7 +23,7 @@
     <main id="app">
       <section class="view active" data-view="home" id="home">
         <div class="hero-card">
-          <img src="./assets/gebouwroute-hero.png" alt="Het gebouw van Hoornbeeck College in Gouda">
+          <img src="./assets/gebouwroute-hero.jpg" fetchpriority="high" alt="Het gebouw van Hoornbeeck College in Gouda">
           <div class="hero-overlay"></div>
           <div class="hero-content">
             <span class="eyebrow">Hoornbeeck College · Gouda</span>
@@ -42,7 +42,7 @@
         </div>
 
         <button class="destination-card" data-room="A.0.15" data-floor="0">
-          <div class="destination-thumb"><img src="./assets/gebouwroute-hero.png" alt=""></div>
+          <div class="destination-thumb"><img src="./assets/gebouwroute-hero.jpg" alt=""></div>
           <div class="destination-copy">
             <strong>Route naar A.0.15</strong>
             <span>Begane grond · restaurant</span>
@@ -126,7 +126,7 @@
           <button class="back-btn" data-go="home">‹</button>
           <div><span class="eyebrow cyan">Locaties</span><h1>Gebouwen</h1></div>
         </div>
-        <div class="photo-card"><img src="assets/aula.png" alt="Aula van het Hoornbeeck College"><div><span>Hoofdgebouw</span><h2>Gouda</h2></div></div>
+        <div class="photo-card"><img loading="lazy" src="assets/aula.jpg" alt="Aula van het Hoornbeeck College"><div><span>Hoofdgebouw</span><h2>Gouda</h2></div></div>
         <div class="search"><span>⌕</span><input id="buildingSearch" placeholder="Zoek lokaal of verdieping..." autocomplete="off"></div>
         <div class="building-list" id="buildingList"></div>
       </section>

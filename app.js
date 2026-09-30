@@ -11,7 +11,7 @@ function showView(name, push = true){
   nav.forEach(b => b.classList.toggle("active", b.dataset.nav === name));
   currentView = name;
   if(push) history.pushState({view:name}, "", `#${name}`);
-  window.scrollTo({top:0, behavior:"smooth"});
+  window.scrollTo(0, 0);
   if(name === "route" && typeof window.__fitFloorplan === "function"){
     requestAnimationFrame(() => window.__fitFloorplan());
   }
@@ -94,7 +94,7 @@ if(floorplanWrap && floorplanImg){
   let mapW = 1000, mapH = 1000; // grootte van de huidige plattegrond in kaart-eenheden (komt uit de SVG)
   let scale = 1, minScale = 1, maxScale = 4, tx = 0, ty = 0;
   let pointers = new Map();
-  let pinchStartDist = 0, pinchStartScale = 1;
+  let pinchStartDist = 0, pinchStartScale = 1, kTimer = 0;
   let dragStart = null, moved = false;
   let gpsWatchId = null, lastFix = null;
   let manualStart = null; // { floor, x, y } — getikt "hier ben ik" (als er geen GPS is)
@@ -171,9 +171,16 @@ if(floorplanWrap && floorplanImg){
 
   function applyTransform(){
     floorplanCanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-    // --k houdt lijndikte, labels en markers even groot op het scherm, ongeacht de zoom
-    floorplanCanvas.style.setProperty("--k", 1 / scale);
-    floorplanWrap.classList.toggle("far", scale < 0.45);
+    // --m houdt de markers even groot op het scherm (goedkoop, elk frame)
+    floorplanCanvas.style.setProperty("--m", 1 / scale);
+    // --k houdt de lokaalteksten even groot; dat herschildert de hele kaart, dus pas als het zoomen stopt
+    clearTimeout(kTimer);
+    kTimer = setTimeout(() => {
+      floorplanCanvas.style.setProperty("--k", 1 / scale);
+      floorplanWrap.classList.toggle("far", scale < 0.45);
+    }, 120);
+    // uitgezoomd scrolt 1 vinger de pagina, ingezoomd versleept 1 vinger de kaart
+    floorplanWrap.style.touchAction = scale > minScale * 1.05 ? "none" : "pan-y";
   }
 
   function clampPan(){
@@ -206,6 +213,7 @@ if(floorplanWrap && floorplanImg){
   document.querySelector("#zoomReset")?.addEventListener("click", fitToContainer);
 
   floorplanWrap.addEventListener("wheel", e => {
+    if(!e.ctrlKey && scale <= minScale * 1.05) return; // uitgezoomd: gewoon de pagina scrollen
     e.preventDefault();
     zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1/1.15);
   }, {passive:false});
@@ -260,7 +268,7 @@ if(floorplanWrap && floorplanImg){
     if(pointers.size === 0){ dragStart = null; }
   }
   floorplanWrap.addEventListener("pointerup", endPointer);
-  floorplanWrap.addEventListener("pointercancel", endPointer);
+  floorplanWrap.addEventListener("pointercancel", e => { moved = true; endPointer(e); }); // browser pakte het gebaar over (paginascroll): geen tik
 
   function screenToImagePoint(clientX, clientY){
     const wrapRect = floorplanWrap.getBoundingClientRect();
