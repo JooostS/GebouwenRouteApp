@@ -17,7 +17,10 @@ function showView(name, push = true){
   }
 }
 
-navButtons.forEach(btn => btn.addEventListener("click", () => showView(btn.dataset.go)));
+navButtons.forEach(btn => btn.addEventListener("click", () => {
+  showView(btn.dataset.go);
+  if(btn.dataset.focus) document.getElementById(btn.dataset.focus)?.focus();
+}));
 window.addEventListener("popstate", e => showView(e.state?.view || location.hash.slice(1) || "home", false));
 
 const initial = location.hash.slice(1);
@@ -43,6 +46,71 @@ function showToast(message){
   window.__toast = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
+/* ---------------- Badges: verdien je door de app te gebruiken; staat alleen in je eigen browser ---------------- */
+const BADGES = [
+  { id: "route",     title: "Route gestart", xp: 25,  how: "Kies een bestemming",                                   done: s => s.rooms.length >= 1 },
+  { id: "gevonden",  title: "Gevonden",      xp: 25,  how: "Zet live locatie aan of tik op de kaart waar je staat", done: s => s.located },
+  { id: "ontdekker", title: "Ontdekker",     xp: 50,  how: "Bekijk 3 verdiepingen",                                 done: s => s.floors.length >= 3 },
+  { id: "trap",      title: "Trappenloper",  xp: 50,  how: "Zoek een route naar een andere verdieping",             done: s => s.crossed },
+  { id: "lokalen",   title: "5 lokalen",     xp: 50,  how: "Kies 5 verschillende lokalen",                          done: s => s.rooms.length >= 5 },
+  { id: "gebouw",    title: "Heel gebouw",   xp: 100, how: "Bekijk alle 8 verdiepingen",                            done: s => s.floors.length >= 8 },
+];
+const XP_PER_LEVEL = 75;
+const PROGRESS_KEY = "hgr_progress";
+const emptyProgress = () => ({ floors: [], rooms: [], located: false, crossed: false, earned: [] });
+const progress = (() => {
+  try{ return { ...emptyProgress(), ...JSON.parse(localStorage.getItem(PROGRESS_KEY)) }; }
+  catch{ return emptyProgress(); }
+})();
+const xpNow = () => BADGES.filter(b => progress.earned.includes(b.id)).reduce((n, b) => n + b.xp, 0);
+
+function renderBadges(){
+  const xp = xpNow(), level = 1 + Math.floor(xp / XP_PER_LEVEL), into = xp - (level - 1) * XP_PER_LEVEL;
+  const set = (sel, v) => document.querySelectorAll(sel).forEach(el => el.textContent = v);
+  set("[data-level]", level);
+  set("[data-xp]", xp);
+  set("[data-xp-next]", level * XP_PER_LEVEL);
+  set("[data-xp-left]", `Nog ${level * XP_PER_LEVEL - xp} XP tot level ${level + 1}`);
+  set("[data-badge-count]", `${progress.earned.length} van ${BADGES.length}`);
+  set("[data-stat-floors]", `${progress.floors.length} van 8`);
+  set("[data-stat-rooms]", progress.rooms.length);
+  const bar = document.querySelector("#xpBar");
+  if(bar){ bar.style.width = (into / XP_PER_LEVEL * 100) + "%"; bar.parentElement.setAttribute("aria-valuenow", into); }
+  const grid = document.querySelector("#badgeGrid");
+  if(grid) grid.innerHTML = BADGES.map(b => {
+    const got = progress.earned.includes(b.id);
+    return `<button class="badge ${got ? "unlocked" : "locked"}" data-badge="${b.id}"><span><svg class="ic"><use href="#${got ? "i-check" : "i-lock"}"/></svg></span><b>${b.title}</b><small>${got ? b.xp + " XP behaald" : b.how}</small></button>`;
+  }).join("");
+}
+
+// gebeurtenissen uit de app: kijk daarna of er een badge bij is gekomen
+function track(type, val){
+  const s = progress;
+  if(type === "floor" && !s.floors.includes(val)) s.floors.push(val);
+  else if(type === "dest" && !s.rooms.includes(val)) s.rooms.push(val);
+  else if(type === "located") s.located = true;
+  else if(type === "crossed") s.crossed = true;
+  const fresh = BADGES.filter(b => !s.earned.includes(b.id) && b.done(s));
+  fresh.forEach(b => s.earned.push(b.id));
+  try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(s)); }catch{}
+  renderBadges();
+  if(fresh.length) showToast(`Badge behaald: ${fresh.map(b => b.title).join(", ")} (+${fresh.reduce((n, b) => n + b.xp, 0)} XP)`);
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-badge]");
+  if(!b) return;
+  const badge = BADGES.find(x => x.id === b.dataset.badge);
+  showToast(progress.earned.includes(badge.id) ? `${badge.title}: behaald` : `${badge.title}: ${badge.how.charAt(0).toLowerCase() + badge.how.slice(1)}`);
+});
+document.querySelector("#resetProgress")?.addEventListener("click", () => {
+  Object.assign(progress, emptyProgress());
+  try{ localStorage.removeItem(PROGRESS_KEY); }catch{}
+  renderBadges();
+  showToast("Voortgang gewist");
+});
+renderBadges();
+
 /* Lokalenlijst: komt uit kaarten/index.json (gegenereerd uit de bouwtekeningen door tools/kaarten-bouwen.mjs) */
 const buildingList = document.querySelector("#buildingList");
 const floorIndex = fetch("kaarten/index.json").then(r => r.json());
@@ -50,11 +118,24 @@ floorIndex.then(floors => {
   const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   buildingList.innerHTML = Object.entries(floors)
     .sort(([a], [b]) => a - b)
-    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><span class="floor">${f === "0" ? "BG" : f}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div><i>›</i></button>`))
+    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><span class="floor">${f === "0" ? "BG" : f}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div><svg class="ic"><use href="#i-chev"/></svg></button>`))
     .join("");
+  // home: verdiepingsbord (hoogste bovenaan, zoals bij de lift) en de laatst gekozen bestemming
+  const short = f => f === "0" ? "BG" : f;
+  document.querySelector("#floorBoard").innerHTML = Object.entries(floors).sort(([a], [b]) => b - a)
+    .map(([f, fl]) => `<li><button data-open-floor="${f}"><span class="num">${short(f)}</span><span class="what"><b>${fl.label}</b><small>${fl.rooms.length} lokalen</small></span><svg class="ic"><use href="#i-chev"/></svg></button></li>`).join("");
+  try{
+    const d = JSON.parse(localStorage.getItem("hgr_v4"))?.dest, last = document.querySelector("#lastRoute");
+    if(d && floors[d.floor]){
+      last.dataset.room = d.code; last.dataset.floor = d.floor; last.hidden = false;
+      last.innerHTML = `<span class="code">${esc(d.code)}</span><span><b>Verder naar je laatste bestemming</b>${esc(d.name || floors[d.floor].label)}</span><svg class="ic"><use href="#i-chev"/></svg>`;
+    }
+  }catch{}
 }).catch(() => { buildingList.innerHTML = `<p class="map-hint">Lokalenlijst kon niet geladen worden.</p>`; });
 
 document.addEventListener("click", e => {
+  const open = e.target.closest("[data-open-floor]");
+  if(open){ showView("route"); window.showFloor?.(open.dataset.openFloor); return; }
   const btn = e.target.closest("[data-room]");
   if(!btn) return;
   showView("route");
@@ -117,6 +198,7 @@ if(floorplanWrap && floorplanImg){
     try{ text = await loadFloorSvg(floor); }
     catch{ delete floorSvgs[floor]; showToast("Plattegrond kon niet geladen worden."); return; }
     if(floor !== String(f)) return; // intussen al een andere verdieping gekozen
+    track("floor", floor);
     const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
     mapW = +svg.getAttribute("width");
     mapH = +svg.getAttribute("height");
@@ -145,6 +227,7 @@ if(floorplanWrap && floorplanImg){
     const room = (await floorIndex)[f]?.rooms.find(r => r.code === code);
     if(!room) return showToast(`${code} staat niet op de plattegrond.`);
     store.dest = { floor: String(f), code, name: room.name, x: room.x, y: room.y };
+    track("dest", `${f}|${code}`);
     saveStore();
     via = null;
     const haveStart = manualStart || lastFix;
@@ -280,6 +363,7 @@ if(floorplanWrap && floorplanImg){
   // tikken = "hier ben ik": startpunt van de route op deze verdieping
   function handleTap(clientX, clientY){
     manualStart = { floor, ...screenToImagePoint(clientX, clientY) };
+    track("located");
     via = null;
     renderStart();
     updateRoute();
@@ -413,6 +497,7 @@ if(floorplanWrap && floorplanImg){
   function onPosition(pos){
     const first = !lastFix;
     lastFix = addFix(pos.coords);
+    if(first) track("located");
     const p = projectLatLng(lastFix.lat, lastFix.lng);
     const acc = `± ${Math.round(lastFix.accuracy)} m (gemiddeld over ${fixes.length} meting${fixes.length === 1 ? "" : "en"}; laatste ± ${Math.round(lastFix.raw)} m)`;
     if(p && onMap(p)){
@@ -469,7 +554,7 @@ if(floorplanWrap && floorplanImg){
   // de originele muurlijnen voor de routeplanner staan los van de tekening (kaarten/<f>.nav.json)
   const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), fetch(`kaarten/${f}.nav.json`).then(r => r.json()), floorIndex]).then(([text, nav, idx]) => {
     const [, w, h] = text.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
-    return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, idx[f].doors || [], +w, +h, idx[f].geo.pxPerMeter, idx[f].openings || []);
+    return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, idx[f].doors || [], +w, +h, idx[f].geo.pxPerMeter, idx[f].openings || [], idx[f].air || []);
   });
   const stairsOf = f => stairs[f] ??= loadFloorSvg(f).then(text =>
     [...text.matchAll(/class="mp-room trap" data-code="[^"]*" transform="translate\(([\d.]+),([\d.]+)\)"/g)]
@@ -492,13 +577,14 @@ if(floorplanWrap && floorplanImg){
 
   function drawRoute(r){
     floorplanImg.querySelector(".mp-route")?.remove();
+    const wasDrawn = !!routeLine;
     routeLine = r ? r.points : null;
     renderLiveMarker();
     if(!r) return;
     const pts = r.points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("class", "mp-route");
-    g.innerHTML = `<polyline class="mp-route-casing" points="${pts}"/><polyline class="mp-route-line" points="${pts}"/>`;
+    g.setAttribute("class", wasDrawn ? "mp-route" : "mp-route draw"); // de lijn tekent zich alleen in bij een nieuwe route, niet bij elke GPS-meting
+    g.innerHTML = `<polyline class="mp-route-casing" pathLength="1" points="${pts}"/><polyline class="mp-route-line" pathLength="1" points="${pts}"/>`;
     floorplanImg.querySelector(".mp-rooms")?.before(g); // onder de lokaalnummers, zodat die leesbaar blijven
   }
 
@@ -558,6 +644,7 @@ if(floorplanWrap && floorplanImg){
     if(stale()) return;
     if(!best){ drawRoute(null); return routeCard(title, "Geen trap gevonden naar die verdieping."); }
     via = best.s;
+    track("crossed");
     drawRoute(best.r1);
     routeCard(title, best.r1.partial ? partialText(best.r1, floor, "de trap")
         : `Loop naar de trap (${walkText(meters(best.r1, floor))}) en ga naar ${floorLabel(dest.floor).toLowerCase()}. Daarna nog ${Math.round(best.rest.m)} m${best.rest.partial ? ", het laatste stuk staat niet op de kaart" : ""}.`,
@@ -585,12 +672,10 @@ if(floorplanWrap && floorplanImg){
     fitToContainer();
   });
   window.__fitFloorplan = () => { fitToContainer(); renderPin(); renderLiveMarker(); };
+  window.showFloor = setFloor;
   setFloor("0");
 }
 
-document.querySelectorAll(".badge.unlocked").forEach(b => {
-  b.addEventListener("click", () => showToast(`${b.querySelector("b").textContent} — badge al behaald!`));
-});
 
 let deferredPrompt;
 const installBtn = document.querySelector("#installBtn");

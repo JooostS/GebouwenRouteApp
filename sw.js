@@ -1,7 +1,7 @@
-const CACHE = "hoornbeeck-route-v26"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
+const CACHE = "hoornbeeck-route-v30"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
 const ASSETS = [
   "./", "./index.html", "./style.css", "./app.js", "./route.js", "./manifest.json", "./icon.svg",
-  "./assets/gebouwroute-hero.jpg", "./assets/aula.jpg",
+  "./assets/aula.jpg", "./assets/fonts/archivo.woff2",
   "./kaarten/index.json", ...["-1", "0", "1", "2", "3", "4", "5", "6"].flatMap(f => [`./kaarten/${f}.svg`, `./kaarten/${f}.nav.json`])
 ];
 self.addEventListener("install", e => {

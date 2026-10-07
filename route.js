@@ -9,7 +9,7 @@ const Route = (() => {
   // walls: SVG-pad van de muren (dikke lijnen); thin: dunne lijnen (glas, kozijnen, dorpels);
   // doors: [cx, cy, ax, ay, bx, by] per deur (scharnier + uiteinden van de deurboog, uit kaarten/index.json);
   // openings: [x, y, r] handmatige doorgangen waar de tekening geen deurboog heeft
-  function buildGrid(walls, thin, doors, mapW, mapH, pxPerMeter, openings = []){
+  function buildGrid(walls, thin, doors, mapW, mapH, pxPerMeter, openings = [], airSeeds = []){
     const cell = CELL_M * pxPerMeter;
     const w = Math.ceil(mapW / cell) + 1, h = Math.ceil(mapH / cell) + 1;
     const raster = (...paths) => {
@@ -44,8 +44,13 @@ const Route = (() => {
     // Buiten = alles wat je vanaf de rand bereikt zonder een lijn te kruisen. Hier tellen de dunne lijnen
     // (ramen) wél mee, anders lekt het via de ramen naar binnen. Buiten mag de route nooit komen.
     const shell = raster(walls, thin);
+    // airSeeds: punten in buitenruimte die door maatlijnen (dunne lijnen) is afgesloten, zoals de leegte tussen de vleugels
     const outside = new Uint8Array(w * h), stack = [0];
     outside[0] = 1;
+    for(const [sx, sy] of airSeeds){
+      const i = Math.floor(sy / cell) * w + Math.floor(sx / cell);
+      if(i >= 0 && i < w * h && !shell[i] && !outside[i]){ outside[i] = 1; stack.push(i); }
+    }
     while(stack.length){
       const i = stack.pop(), x = i % w;
       for(const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]){
@@ -94,6 +99,17 @@ const Route = (() => {
       }
       front = next;
     }
+    // Reepjes tussen de gevel (dunne lijn) en een muur zijn geen loopruimte maar buitenlucht: de lijn liep daar langs de
+    // buitenkant van het gebouw. Cellen vlak bij een muur (dist < 2) én vlak bij buiten tellen daarom als buiten.
+    const near = new Uint8Array(w * h);
+    let edge = [];
+    for(let i = 0; i < w * h; i++) if(outside[i]){ near[i] = 1; edge.push(i); }
+    for(let k = 0; k < 3; k++){
+      const next = [];
+      for(const i of edge) for(const j of [i - 1, i + 1, i - w, i + w]) if(j >= 0 && j < w * h && !near[j]){ near[j] = 1; next.push(j); }
+      edge = next;
+    }
+    for(let i = 0; i < w * h; i++) if(!blocked[i] && !outside[i] && dist[i] < 2 && near[i]) outside[i] = 1;
     return { w, h, cell, blocked, dist, outside };
   }
 

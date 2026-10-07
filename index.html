@@ -3,76 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07111f">
-  <meta name="description" content="Hoornbeeck College Gouda — vind je bestemming met de Gebouwenroute.">
+  <meta name="theme-color" content="#12161a">
+  <meta name="description" content="Hoornbeeck College Gouda: zoek je lokaal en loop de kortste route.">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="preload" href="./assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./style.css">
   <title>Gebouwenroute — Hoornbeeck College</title>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/></symbol>
+      <symbol id="i-rooms" viewBox="0 0 24 24"><path d="M4 21V4h11v17M15 9h5v12M4 21h16M8 8h3M8 12h3M8 16h3"/></symbol>
+      <symbol id="i-badge" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5.5"/><path d="m8.5 13.5-1.5 7 5-2.5 5 2.5-1.5-7"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4.5 4-6.5 8-6.5s7.2 2 8 6.5"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+      <symbol id="i-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></symbol>
+      <symbol id="i-install" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/><path d="m4 7 8 6 8-6"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></symbol>
+    </defs>
+  </svg>
+
   <div class="app-shell">
     <header class="topbar">
       <a class="brand" href="#home" aria-label="Hoornbeeck College, naar home">
         <span class="brand-mark" aria-hidden="true"><i></i><b></b><em></em></span>
-        <span><strong>Hoornbeeck</strong><small>College · Gouda</small></span>
+        <span class="brand-name"><strong>Hoornbeeck</strong><small>Gouda</small></span>
       </a>
-      <button class="icon-btn" id="installBtn" hidden aria-label="App installeren">↓</button>
+      <button class="icon-btn" id="installBtn" hidden aria-label="App installeren"><svg class="ic"><use href="#i-install"/></svg></button>
     </header>
 
     <main id="app">
       <section class="view active" data-view="home" id="home">
-        <div class="hero-card">
-          <img src="./assets/gebouwroute-hero.jpg" fetchpriority="high" alt="Het gebouw van Hoornbeeck College in Gouda">
-          <div class="hero-overlay"></div>
-          <div class="hero-content">
-            <span class="eyebrow">Hoornbeeck College · Gouda</span>
-            <h1>Gebouwenroute</h1>
-            <p>Ontdek je route.<br>Vind je bestemming.</p>
-            <button class="primary-btn" data-go="route">Start route <span>→</span></button>
-          </div>
+        <div class="home-photo"><img src="./assets/aula.jpg" fetchpriority="high" alt="Studenten in de aula van het Hoornbeeck College"></div>
+
+        <div class="finder">
+          <h1>Welk lokaal zoek je?</h1>
+          <button class="find-btn" data-go="buildings" data-focus="buildingSearch"><svg class="ic"><use href="#i-search"/></svg><span>Zoek op lokaal of verdieping</span></button>
         </div>
 
-        <div class="section-heading">
-          <div>
-            <span class="eyebrow cyan">Jouw volgende stop</span>
-            <h2>A.0.15 <small>Restaurant</small></h2>
-          </div>
-          <span class="walk-pill">🚶 2 min</span>
-        </div>
+        <button class="last-route" id="lastRoute" hidden></button>
 
-        <button class="destination-card" data-room="A.0.15" data-floor="0">
-          <div class="destination-thumb"><img src="./assets/gebouwroute-hero.jpg" alt=""></div>
-          <div class="destination-copy">
-            <strong>Route naar A.0.15</strong>
-            <span>Begane grond · restaurant</span>
-            <small>Bekijk route <b>›</b></small>
-          </div>
-        </button>
-
-        <div class="quick-grid">
-          <button class="quick-card" data-go="buildings"><span class="quick-icon">⌖</span><b>Gebouwen</b><small>Bekijk locaties</small></button>
-          <button class="quick-card" data-go="badges"><span class="quick-icon purple">✦</span><b>Badges</b><small>Verzamel XP</small></button>
-          <button class="quick-card" data-go="info"><span class="quick-icon green">i</span><b>Informatie</b><small>Hulp & contact</small></button>
-        </div>
+        <h2 class="board-title">Verdiepingen</h2>
+        <ol class="board" id="floorBoard"></ol>
       </section>
 
       <section class="view" data-view="route" id="route">
         <div class="page-head">
-          <button class="back-btn" data-go="home">‹</button>
-          <div><span class="eyebrow cyan">Navigatie</span><h1>Gebouwenroute</h1></div>
-          <button class="locate-pill" id="locateBtn" data-locate aria-pressed="false"><span class="locate-icon" aria-hidden="true"></span><span class="locate-label">Mijn locatie</span></button>
+          <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
+          <h1>Route</h1>
+          <button class="locate-pill" id="locateBtn" data-locate aria-pressed="false"><svg class="ic"><use href="#i-locate"/></svg><span class="locate-label">Mijn locatie</span></button>
         </div>
 
         <div class="floor-tabs" id="floorTabs" role="tablist" aria-label="Verdieping kiezen">
-          <button data-floor="-1" role="tab">-1<small>Kelder</small></button>
-          <button data-floor="0" role="tab" aria-selected="true" class="active">BG<small>Begane grond</small></button>
-          <button data-floor="1" role="tab">1<small>Verd. 1</small></button>
-          <button data-floor="2" role="tab">2<small>Verd. 2</small></button>
-          <button data-floor="3" role="tab">3<small>Verd. 3</small></button>
-          <button data-floor="4" role="tab">4<small>Verd. 4</small></button>
-          <button data-floor="5" role="tab">5<small>Verd. 5</small></button>
-          <button data-floor="6" role="tab">6<small>Verd. 6</small></button>
+          <button data-floor="-1" role="tab" aria-label="Kelder">-1<small>kelder</small></button>
+          <button data-floor="0" role="tab" aria-selected="true" class="active" aria-label="Begane grond">BG<small>begane grond</small></button>
+          <button data-floor="1" role="tab" aria-label="Verdieping 1">1</button>
+          <button data-floor="2" role="tab" aria-label="Verdieping 2">2</button>
+          <button data-floor="3" role="tab" aria-label="Verdieping 3">3</button>
+          <button data-floor="4" role="tab" aria-label="Verdieping 4">4</button>
+          <button data-floor="5" role="tab" aria-label="Verdieping 5">5</button>
+          <button data-floor="6" role="tab" aria-label="Verdieping 6">6</button>
         </div>
 
         <div class="floorplan-wrap" id="floorplanWrap">
@@ -80,23 +82,21 @@
             <svg id="floorplanImg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Plattegrond"></svg>
             <div class="marker accuracy" id="accuracyMarker" hidden></div>
             <div class="marker me" id="meMarker" hidden><i></i></div>
-            <div class="marker pin" id="pinMarker" hidden>📍</div>
+            <div class="marker pin" id="pinMarker" hidden></div>
             <div class="marker start" id="startMarker" hidden></div>
           </div>
           <div class="floorplan-zoom">
-            <button id="zoomIn" aria-label="Inzoomen">+</button>
-            <button id="zoomOut" aria-label="Uitzoomen">−</button>
-            <button id="zoomReset" aria-label="Reset weergave">⤢</button>
+            <button id="zoomIn" aria-label="Inzoomen"><svg class="ic"><use href="#i-plus"/></svg></button>
+            <button id="zoomOut" aria-label="Uitzoomen"><svg class="ic"><use href="#i-minus"/></svg></button>
+            <button id="zoomReset" aria-label="Hele plattegrond tonen"><svg class="ic"><use href="#i-fit"/></svg></button>
           </div>
         </div>
 
-        <p class="map-hint" id="mapHint">Tik op de kaart waar je nu bent. Sleep om te verschuiven, knijp of scroll om te zoomen.</p>
+        <p class="map-hint" id="mapHint">Tik op de kaart waar je nu staat. Sleep om te schuiven, knijp om te zoomen.</p>
 
         <div class="route-info" id="routeCard">
-          <div class="route-title">
-            <span class="route-icon">⌖</span>
-            <div><h2 id="routeTitle">Waar wil je heen?</h2><span id="routeMeta">Kies een lokaal om een route te krijgen.</span></div>
-          </div>
+          <h2 id="routeTitle">Waar wil je heen?</h2>
+          <p id="routeMeta">Kies een lokaal om de route te zien.</p>
           <div class="route-actions">
             <button class="primary-btn wide" id="routeNext" hidden></button>
             <button class="ghost-btn" id="routePick">Kies bestemming</button>
@@ -104,89 +104,87 @@
           </div>
         </div>
 
-        <div class="tip-banner" id="gpsTip">
-          <span class="tip-icon">💡</span>
-          <div><b>Voor de beste locatie</b><small>Laat wifi áán en zet locatie op "hoge nauwkeurigheid". Binnen komt GPS slecht door; je telefoon bepaalt je positie dan vooral met wifi. Kies zelf de verdieping waar je bent.</small></div>
-        </div>
-
         <div class="gps-card" id="gpsCard">
           <div class="gps-status">
             <span class="gps-dot" id="gpsDot"></span>
             <div>
-              <b id="gpsStatusText">Live locatie uitgeschakeld</b>
-              <small id="gpsAccuracyText">Zet je live locatie aan om jezelf als blauwe stip op de kaart te zien.</small>
+              <b id="gpsStatusText">Live locatie staat uit</b>
+              <small id="gpsAccuracyText">Zet live locatie aan om jezelf als blauwe stip op de kaart te zien.</small>
             </div>
           </div>
-          <button class="primary-btn wide" data-locate><span class="locate-label">Live locatie aanzetten</span><span>→</span></button>
+          <button class="ghost-btn" data-locate><span class="locate-label">Live locatie aanzetten</span></button>
+          <p class="gps-tip" id="gpsTip">Binnen werkt locatie het best met wifi aan en locatie op hoge nauwkeurigheid. Kies zelf de verdieping waar je bent.</p>
         </div>
       </section>
 
       <section class="view" data-view="buildings" id="buildings">
         <div class="page-head">
-          <button class="back-btn" data-go="home">‹</button>
-          <div><span class="eyebrow cyan">Locaties</span><h1>Gebouwen</h1></div>
+          <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
+          <h1>Lokalen</h1>
         </div>
-        <div class="photo-card"><img loading="lazy" src="assets/aula.jpg" alt="Aula van het Hoornbeeck College"><div><span>Hoofdgebouw</span><h2>Gouda</h2></div></div>
-        <div class="search"><span>⌕</span><input id="buildingSearch" placeholder="Zoek lokaal of verdieping..." autocomplete="off"></div>
+        <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="buildingSearch" type="search" placeholder="Bijvoorbeeld B.4.01" aria-label="Zoek een lokaal of verdieping" autocomplete="off"></div>
         <div class="building-list" id="buildingList"></div>
       </section>
 
       <section class="view" data-view="badges" id="badges">
         <div class="page-head">
-          <button class="back-btn" data-go="home">‹</button>
-          <div><span class="eyebrow cyan">Gamification</span><h1>Badges</h1></div>
+          <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
+          <h1>Badges</h1>
         </div>
         <div class="xp-card">
-          <div class="level-ring"><span>5</span><small>LEVEL</small></div>
-          <div><span>Jouw voortgang</span><h2>275 <small>/ 500 XP</small></h2><div class="progress"><i style="width:55%"></i></div><small>225 XP tot level 6</small></div>
+          <div class="level-num"><b data-level>1</b><small>level</small></div>
+          <div class="xp-body">
+            <h2><span data-xp>0</span> <small>van <span data-xp-next>75</span> XP</small></h2>
+            <div class="progress" role="progressbar" aria-label="Voortgang naar het volgende level" aria-valuenow="0" aria-valuemin="0" aria-valuemax="75"><i id="xpBar" style="width:0"></i></div>
+            <small data-xp-left></small>
+          </div>
         </div>
-        <div class="section-heading compact"><div><span class="eyebrow cyan">Collectie</span><h2>Badges</h2></div><span class="counter">12 / 25</span></div>
-        <div class="badge-grid">
-          <button class="badge unlocked"><span>⌖</span><b>Route gestart</b><small>+25 XP</small></button>
-          <button class="badge unlocked purple"><span>◆</span><b>Ontdekker</b><small>+50 XP</small></button>
-          <button class="badge unlocked green"><span>✓</span><b>Op tijd</b><small>+25 XP</small></button>
-          <button class="badge locked"><span>✦</span><b>Verdieping 2</b><small>Vergrendeld</small></button>
-          <button class="badge locked"><span>◈</span><b>Lokalen 10×</b><small>Vergrendeld</small></button>
-          <button class="badge locked"><span>★</span><b>Legende</b><small>Level 25</small></button>
-        </div>
+        <div class="section-heading"><h2>Badges</h2><span class="counter" data-badge-count></span></div>
+        <div class="badge-grid" id="badgeGrid"></div>
       </section>
 
       <section class="view" data-view="profile" id="profile">
         <div class="page-head">
-          <button class="back-btn" data-go="home">‹</button>
-          <div><span class="eyebrow cyan">Jouw account</span><h1>Profiel</h1></div>
+          <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
+          <h1>Voortgang</h1>
         </div>
-        <div class="profile-card"><div class="avatar">JS</div><div><h2>De Student</h2><span>Level 5 Verkenner</span></div><b>275 XP</b></div>
-        <div class="profile-progress"><div class="progress"><i style="width:55%"></i></div><small>275 / 500 XP</small></div>
-        <div class="settings-list">
-          <button><span>◷</span><div><b>Statistieken</b><small>Jouw route-activiteit</small></div><i>›</i></button>
-          <button><span>✦</span><div><b>Badges</b><small>12 van 25 verzameld</small></div><i>›</i></button>
-          <button><span>⌖</span><div><b>Ontdekte locaties</b><small>23 van 56 locaties</small></div><i>›</i></button>
-          <button><span>⚙</span><div><b>Instellingen</b><small>Voorkeuren & privacy</small></div><i>›</i></button>
-        </div>
+        <div class="profile-card"><div class="avatar" data-level>1</div><div><h2>Level <span data-level>1</span></h2><span><span data-xp>0</span> XP verdiend</span></div></div>
+        <dl class="facts">
+          <div><dt>Badges</dt><dd data-badge-count></dd></div>
+          <div><dt>Verdiepingen bekeken</dt><dd data-stat-floors></dd></div>
+          <div><dt>Verschillende lokalen gekozen</dt><dd data-stat-rooms></dd></div>
+        </dl>
+        <button class="ghost-btn danger" id="resetProgress">Voortgang wissen</button>
+        <p class="fine">Je voortgang staat alleen op deze telefoon.</p>
       </section>
 
       <section class="view" data-view="info" id="info">
         <div class="page-head">
-          <button class="back-btn" data-go="home">‹</button>
-          <div><span class="eyebrow cyan">Hulp</span><h1>Informatie</h1></div>
+          <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
+          <h1>Info</h1>
         </div>
-        <div class="info-hero"><span class="info-logo">H</span><h2>Hoornbeeck College</h2><p>Gebouwenroute · Gouda</p></div>
-        <div class="info-list">
-          <button><span>?</span><div><b>Hoe werkt het?</b><small>Alles over de gebouwenroute</small></div><i>›</i></button>
-          <button><span>⌖</span><div><b>Over de gebouwenroute</b><small>Versie 1.0 · Gouda</small></div><i>›</i></button>
-          <button><span>♧</span><div><b>Privacy & veiligheid</b><small>Lees ons privacybeleid</small></div><i>›</i></button>
-          <button><span>✉</span><div><b>Contact & feedback</b><small>Help ons de app verbeteren</small></div><i>›</i></button>
+        <div class="howto">
+          <h2>Zo werkt het</h2>
+          <ol>
+            <li>Zoek je lokaal bij Lokalen, of kies een verdieping op home.</li>
+            <li>Tik op de plattegrond waar je staat, of zet live locatie aan.</li>
+            <li>Loop over de lijn. Zit je lokaal op een andere verdieping, dan loopt de lijn eerst naar de trap.</li>
+          </ol>
+          <h2>Privacy</h2>
+          <p>Je locatie wordt alleen op je telefoon gebruikt voor de stip op de kaart. Er wordt niets verstuurd of opgeslagen.</p>
+          <h2>Klopt er iets niet?</h2>
+          <p>De plattegronden komen uit de bouwtekeningen. Mist er een deur of staat een lokaal op de verkeerde plek, laat het de docent of het project weten.</p>
+          <p class="fine">Gebouwenroute, versie 1.0, Hoornbeeck College Gouda</p>
         </div>
       </section>
     </main>
 
     <nav class="bottom-nav" aria-label="Hoofdnavigatie">
-      <button data-go="route" data-nav="route"><span>⌖</span><small>Route</small></button>
-      <button data-go="buildings" data-nav="buildings"><span>▦</span><small>Gebouwen</small></button>
-      <button data-go="badges" data-nav="badges"><span>✦</span><small>Badges</small></button>
-      <button data-go="profile" data-nav="profile"><span>●</span><small>Profiel</small></button>
-      <button data-go="info" data-nav="info"><span>i</span><small>Info</small></button>
+      <button data-go="route" data-nav="route"><svg class="ic"><use href="#i-route"/></svg><small>Route</small></button>
+      <button data-go="buildings" data-nav="buildings"><svg class="ic"><use href="#i-rooms"/></svg><small>Lokalen</small></button>
+      <button data-go="badges" data-nav="badges"><svg class="ic"><use href="#i-badge"/></svg><small>Badges</small></button>
+      <button data-go="profile" data-nav="profile"><svg class="ic"><use href="#i-user"/></svg><small>Profiel</small></button>
+      <button data-go="info" data-nav="info"><svg class="ic"><use href="#i-info"/></svg><small>Info</small></button>
     </nav>
   </div>
   <div class="toast" id="toast" role="status"></div>
