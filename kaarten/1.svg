@@ -33,16 +33,16 @@
 <g class="mp-room lokaal" data-code="A.1.15" transform="translate(1231.2,754.7)"><text class="mp-code">A.1.15</text></g>
 <g class="mp-room lokaal" data-code="A.1.16" transform="translate(1496.2,615.7)"><text class="mp-code">A.1.16</text></g>
 <g class="mp-room trap" data-code="A.T.1.3" transform="translate(1772.2,1203.7)"><text class="mp-code">trap</text></g>
-<g class="mp-room sanitair" data-code="A.F.1.1" transform="translate(2593.2,1908.7)"><text class="mp-code">WC</text></g>
+<g class="mp-room lift" data-code="A.F.1.1" transform="translate(2593.2,1908.7)"><text class="mp-code">lift</text></g>
 <g class="mp-room lokaal" data-code="A.1.17" transform="translate(1435.2,937.7)"><text class="mp-code">A.1.17</text></g>
-<g class="mp-room sanitair" data-code="A.F.1.4" transform="translate(1699.2,835.7)"><text class="mp-code">WC</text></g>
+<g class="mp-room lift" data-code="A.F.1.4" transform="translate(1699.2,835.7)"><text class="mp-code">lift</text></g>
 <g class="mp-room lokaal" data-code="B.1.03" transform="translate(2320.2,2736.0)"><text class="mp-code">B.1.03</text><text class="mp-name" y="26">crealokaal met werkhoeken</text></g>
 <g class="mp-room lokaal" data-code="B.1.04" transform="translate(2125.2,3078.4)"><text class="mp-code">B.1.04</text><text class="mp-name" y="26">crealokaal / open atelier</text></g>
 <g class="mp-room lokaal" data-code="B.1.02" transform="translate(2538.9,2356.7)"><text class="mp-code">B.1.02</text><text class="mp-name" y="26">berging</text></g>
 <g class="mp-room lokaal" data-code="B.1.01" transform="translate(2571.5,2107.7)"><text class="mp-code">B.1.01</text><text class="mp-name" y="26">berging groot</text></g>
 <g class="mp-room lokaal" data-code="B.1.09" transform="translate(2062.5,2366.8)"><text class="mp-code">B.1.09</text><text class="mp-name" y="26">berging werkstukken</text></g>
 <g class="mp-room lokaal" data-code="B.1.10" transform="translate(2019.6,2197.9)"><text class="mp-code">B.1.10</text><text class="mp-name" y="26">thuishonk studenten</text></g>
-<g class="mp-room sanitair" data-code="B.F.1.4" transform="translate(1797.7,2876.2)"><text class="mp-code">WC</text></g>
+<g class="mp-room lokaal" data-code="B.F.1.4" transform="translate(1797.7,2876.2)"><text class="mp-code">B.F.1.4</text><text class="mp-name" y="26">berging schoonmaak</text></g>
 <g class="mp-room lokaal" data-code="B.1.11" transform="translate(2223.9,2073.6)"><text class="mp-code">B.1.11</text><text class="mp-name" y="26">garderobe studenten</text></g>
 <g class="mp-room gang" data-code="B.T.1.1" transform="translate(698.3,3826.2)"><text class="mp-code">gang</text></g>
 <g class="mp-room lokaal" data-code="B.1.05" transform="translate(885.0,3845.7)"><text class="mp-code">B.1.05</text><text class="mp-name" y="26">zelfstandig leren</text></g>
@@ -51,8 +51,8 @@
 <g class="mp-room gang" data-code="B.1.13" transform="translate(2321.5,2093.6)"><text class="mp-code">gang</text></g>
 <g class="mp-room gang" data-code="B.1.06" transform="translate(1478.7,2844.9)"><text class="mp-code">gang</text></g>
 <g class="mp-room gang" data-code="B.1.07" transform="translate(1706.7,2703.9)"><text class="mp-code">gang</text></g>
-<g class="mp-room sanitair" data-code="B.F.1.1" transform="translate(2448.9,2043.7)"><text class="mp-code">WC</text></g>
-<g class="mp-room sanitair" data-code="B.F.1.5" transform="translate(2437.4,2145.4)"><text class="mp-code">WC</text></g>
+<g class="mp-room lift" data-code="B.F.1.1" transform="translate(2448.9,2043.7)"><text class="mp-code">lift</text></g>
+<g class="mp-room lift" data-code="B.F.1.5" transform="translate(2437.4,2145.4)"><text class="mp-code">lift</text></g>
 <g class="mp-room lokaal" data-code="B.1.12" transform="translate(2188.2,2246.4)"><text class="mp-code">B.1.12</text></g>
 <g class="mp-room trap" data-code="B.T.1.2" transform="translate(813.6,3486.0)"><text class="mp-code">trap</text></g>
 </g>

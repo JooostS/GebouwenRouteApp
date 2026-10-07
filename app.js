@@ -219,6 +219,7 @@ if(floorplanWrap && floorplanImg){
   }, {passive:false});
 
   floorplanWrap.addEventListener("pointerdown", e => {
+    if(e.target.closest(".floorplan-zoom")) return; // de zoomknoppen moeten zelf een klik krijgen (geen pointer-capture)
     floorplanWrap.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
     if(pointers.size === 1){

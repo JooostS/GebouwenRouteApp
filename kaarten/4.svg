@@ -29,7 +29,7 @@
 <g class="mp-room trap" data-code="A.T.4.4" transform="translate(2206.3,1533.6)"><text class="mp-code">trap</text></g>
 <g class="mp-room lokaal" data-code="A.4.12" transform="translate(1486.3,698.6)"><text class="mp-code">A.4.12</text></g>
 <g class="mp-room trap" data-code="A.T.4.3" transform="translate(1171.3,818.6)"><text class="mp-code">trap</text></g>
-<g class="mp-room sanitair" data-code="B.F.4.5" transform="translate(1792.4,2965.2)"><text class="mp-code">WC</text></g>
+<g class="mp-room lokaal" data-code="B.F.4.5" transform="translate(1792.4,2965.2)"><text class="mp-code">B.F.4.5</text></g>
 <g class="mp-room lokaal" data-code="B.4.16" transform="translate(2222.2,2274.7)"><text class="mp-code">B.4.16</text><text class="mp-name" y="26">lockers studenten</text></g>
 <g class="mp-room lokaal" data-code="B.4.04" transform="translate(1551.2,3516.5)"><text class="mp-code">B.4.04</text><text class="mp-name" y="26">netwerkopleiding</text></g>
 <g class="mp-room lokaal" data-code="B.4.05" transform="translate(1765.7,3211.5)"><text class="mp-code">B.4.05</text><text class="mp-name" y="26">berging klein</text></g>
@@ -49,11 +49,11 @@
 <g class="mp-room lokaal" data-code="B.4.08" transform="translate(585.6,3575.4)"><text class="mp-code">B.4.08</text></g>
 <g class="mp-room lokaal" data-code="B.4.09" transform="translate(842.2,3408.8)"><text class="mp-code">B.4.09</text></g>
 <g class="mp-room gang" data-code="B.4.11" transform="translate(1448.7,3254.0)"><text class="mp-code">gang</text></g>
-<g class="mp-room sanitair" data-code="B.F.4.4" transform="translate(1863.4,3148.0)"><text class="mp-code">WC</text></g>
+<g class="mp-room lokaal" data-code="B.F.4.4" transform="translate(1863.4,3148.0)"><text class="mp-code">B.F.4.4</text><text class="mp-name" y="26">techniek</text></g>
 <g class="mp-room lokaal" data-code="B.4.17" transform="translate(2310.2,2406.6)"><text class="mp-code">B.4.17</text></g>
-<g class="mp-room sanitair" data-code="B.F.4.1" transform="translate(2436.2,2123.2)"><text class="mp-code">WC</text></g>
-<g class="mp-room sanitair" data-code="B.F.4.6" transform="translate(2445.7,2207.7)"><text class="mp-code">WC</text></g>
-<g class="mp-room sanitair" data-code="A.F.4.1" transform="translate(2607.8,1972.5)"><text class="mp-code">WC</text></g>
+<g class="mp-room lift" data-code="B.F.4.1" transform="translate(2436.2,2123.2)"><text class="mp-code">lift</text></g>
+<g class="mp-room lift" data-code="B.F.4.6" transform="translate(2445.7,2207.7)"><text class="mp-code">lift</text></g>
+<g class="mp-room lift" data-code="A.F.4.1" transform="translate(2607.8,1972.5)"><text class="mp-code">lift</text></g>
 <g class="mp-room lokaal" data-code="B.4.14" transform="translate(2108.5,2318.2)"><text class="mp-code">B.4.14</text></g>
 <g class="mp-room trap" data-code="B.T.4.2" transform="translate(2218.4,2705.9)"><text class="mp-code">trap</text></g>
 </g>

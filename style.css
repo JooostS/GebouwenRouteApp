@@ -49,6 +49,7 @@ main{padding:16px}.view{display:none;animation:fade .3s cubic-bezier(.2,.7,.2,1)
 .mp-code{fill:#e6f1ff;font-weight:800;font-size:max(20px,calc(10.5px * var(--k,1)))}
 .mp-name{fill:#8fa6c2;font-weight:600;font-size:14px}
 .mp-room.gang .mp-code{fill:var(--cyan);font-size:max(16px,calc(9px * var(--k,1)));letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.mp-room.lift .mp-code{fill:#ffd68a;font-size:max(16px,calc(9px * var(--k,1)))}
 .mp-room.trap .mp-code{fill:#c3b3ff;font-size:max(16px,calc(9px * var(--k,1)))}
 .mp-room.sanitair .mp-code{fill:#a9f2cf;font-size:max(16px,calc(9px * var(--k,1)))}
 .mp-room.active .mp-code{fill:var(--gold)}

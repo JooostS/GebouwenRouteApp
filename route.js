@@ -100,6 +100,25 @@ const Route = (() => {
   // dichtstbijzijnde cel binnen het gebouw die niet in een muurholte zit (minstens 2 cellen van een muur)
   function snap(g, p){
     const cx = Math.floor(p.x / g.cell), cy = Math.floor(p.y / g.cell);
+    // Staat het punt in een open cel (bv. in een lokaal), zoek dan eerst binnen dezelfde ruimte (vloeien rond muren,
+    // niet erdoor). Anders sprong het punt naar de gang aan de andere kant van de muur en liep de route verkeerd.
+    if(cx >= 0 && cy >= 0 && cx < g.w && cy < g.h && !g.blocked[cy * g.w + cx] && !g.outside[cy * g.w + cx]){
+      const seen = new Set([cy * g.w + cx]);
+      let ring = [cy * g.w + cx];
+      for(let step = 0; step <= 40 && ring.length; step++){
+        const ok = ring.filter(i => g.dist[i] >= 2);
+        if(ok.length){
+          let best = ok[0], bd = Infinity;
+          for(const i of ok){ const x = i % g.w, d = (x - cx) ** 2 + ((i - x) / g.w - cy) ** 2; if(d < bd){ bd = d; best = i; } }
+          return best;
+        }
+        const next = [];
+        for(const i of ring) for(const j of [i - 1, i + 1, i - g.w, i + g.w]){
+          if(j >= 0 && j < g.w * g.h && !seen.has(j) && !g.blocked[j] && !g.outside[j]){ seen.add(j); next.push(j); }
+        }
+        ring = next;
+      }
+    }
     for(let r = 0; r <= 24; r++){
       let best = -1, bd = Infinity;
       for(let dy = -r; dy <= r; dy++) for(let dx = -r; dx <= r; dx++){
