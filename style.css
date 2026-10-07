@@ -41,10 +41,10 @@ main{padding:16px}.view{display:none;animation:fade .3s cubic-bezier(.2,.7,.2,1)
 .floorplan-zoom button{width:38px;height:38px;background:rgba(10,21,36,.92);border:1px solid var(--line);border-radius:11px;color:var(--text);font-size:16px;}
 
 /* plattegrond uit de bouwtekeningen (kaarten/*.svg); --k = 1/zoom, zodat lijnen en tekst schermvast blijven */
-.mp-walls,.mp-door{fill:none;stroke:#8fb1d6;stroke-width:1.3px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
-.mp-outer{stroke:#cfe3f7;stroke-width:3px}
-.mp-door{stroke:#5f7fa3;stroke-width:.8px}
-.mp-nav{display:none}
+.mp-walls,.mp-door{fill:none;stroke:#8fb1d6;stroke-width:calc(1.3px * var(--k,1));stroke-linejoin:round}
+.mp-outer{stroke:#cfe3f7;stroke-width:calc(3px * var(--k,1))}
+.mp-door{stroke:#5f7fa3;stroke-width:calc(.8px * var(--k,1))}
+
 .mp-room text{text-anchor:middle;dominant-baseline:middle;font-family:Inter,sans-serif;pointer-events:none;paint-order:stroke;stroke:#070d18;stroke-width:calc(3px * var(--k,1));stroke-linejoin:round}
 .mp-code{fill:#e6f1ff;font-weight:800;font-size:max(20px,calc(10.5px * var(--k,1)))}
 .mp-name{fill:#8fa6c2;font-weight:600;font-size:14px}
@@ -82,9 +82,9 @@ main{padding:16px}.view{display:none;animation:fade .3s cubic-bezier(.2,.7,.2,1)
 @media (max-width:370px){main{padding:12px}.hero-card{height:400px}.hero-content h1{font-size:28px}.quick-card{padding:11px 8px}.badge-grid{gap:6px}.floorplan-wrap{height:52vh}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 /* route (zoals Google Maps): blauwe lijn met lichte rand, schermvaste dikte via --k */
-.mp-route polyline{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
-.mp-route-casing{stroke:#dff4ff;stroke-width:9px;opacity:.9}
-.mp-route-line{stroke:var(--blue);stroke-width:5.5px}
+.mp-route polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mp-route-casing{stroke:#dff4ff;stroke-width:calc(9px * var(--k,1));opacity:.9}
+.mp-route-line{stroke:var(--blue);stroke-width:calc(5.5px * var(--k,1))}
 .marker.start{width:18px;height:18px;border-radius:50%;background:#fff;border:5px solid var(--blue);box-shadow:0 2px 8px rgba(0,0,0,.5)}
 .route-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .route-actions .wide{grid-column:1/-1;margin-top:0}

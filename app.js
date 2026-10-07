@@ -121,8 +121,7 @@ if(floorplanWrap && floorplanImg){
     mapW = +svg.getAttribute("width");
     mapH = +svg.getAttribute("height");
     ["viewBox", "width", "height"].forEach(a => floorplanImg.setAttribute(a, svg.getAttribute(a)));
-    // mp-nav (de originele muren voor de routeplanner) hoeft niet in de DOM: alleen tekenen wat je ziet
-    floorplanImg.replaceChildren(...[...svg.childNodes].filter(n => !n.classList?.contains("mp-nav")).map(n => document.importNode(n, true)));
+    floorplanImg.replaceChildren(...[...svg.childNodes].map(n => document.importNode(n, true)));
     floorplanImg.setAttribute("aria-label", `Plattegrond ${tab?.querySelector("small")?.textContent || ""}`);
     fitToContainer();
     renderPin();
@@ -423,7 +422,9 @@ if(floorplanWrap && floorplanImg){
       setGpsStatus("on", "Je bent niet in het gebouw", `${acc} · ongeveer ${dist < 1000 ? Math.round(dist) + " m" : (dist/1000).toFixed(1) + " km"} van het Hoornbeeck`);
     }
     renderLiveMarker();
-    if(!manualStart) updateRoute();
+    // een nieuwe route zoeken is zwaar: pas als je >1,5 m van het vorige startpunt staat
+    const q = gpsPoint();
+    if(!manualStart && !(q && routedFrom?.floor === floor && Math.hypot(q.x - routedFrom.x, q.y - routedFrom.y) < 1.5 * q.pxPerMeter)) updateRoute();
   }
 
   function onError(err){
@@ -462,13 +463,12 @@ if(floorplanWrap && floorplanImg){
      Bestemming op een andere verdieping: route naar de beste trap; trappen koppelen we tussen
      verdiepingen via hun lat/lng (ze staan recht boven elkaar; de nummers verschillen per verdieping). */
   const grids = {}, stairs = {}, restCache = new Map();
-  let routeSeq = 0;
+  let routeSeq = 0, routedFrom = null; // routedFrom: startpunt van de laatst berekende route
 
-  const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), floorIndex]).then(([text, idx]) => {
+  // de originele muurlijnen voor de routeplanner staan los van de tekening (kaarten/<f>.nav.json)
+  const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), fetch(`kaarten/${f}.nav.json`).then(r => r.json()), floorIndex]).then(([text, nav, idx]) => {
     const [, w, h] = text.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
-    const walls = text.match(/class="mp-nav" d="([^"]*)"/)[1];
-    const thin = (text.match(/class="mp-nav mp-thin" d="([^"]*)"/) || [, ""])[1];
-    return gridReady[f] = Route.buildGrid(walls, thin, idx[f].doors || [], +w, +h, idx[f].geo.pxPerMeter, idx[f].openings || []);
+    return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, idx[f].doors || [], +w, +h, idx[f].geo.pxPerMeter, idx[f].openings || []);
   });
   const stairsOf = f => stairs[f] ??= loadFloorSvg(f).then(text =>
     [...text.matchAll(/class="mp-room trap" data-code="[^"]*" transform="translate\(([\d.]+),([\d.]+)\)"/g)]
@@ -517,6 +517,7 @@ if(floorplanWrap && floorplanImg){
     const title = `Naar ${dest.code}${dest.name ? " · " + dest.name : ""}`;
     await floorIndex;
     const start = currentStart();
+    routedFrom = start && { floor, x: start.x, y: start.y };
     if(!start){
       drawRoute(null);
       return routeCard(title, `${floorLabel(dest.floor)}. Kies de verdieping waar je bent en tik op de kaart waar je staat, of tik rechtsboven op "Mijn locatie".`);
@@ -533,15 +534,21 @@ if(floorplanWrap && floorplanImg){
     const candidates = [...await stairsOf(floor), ...await stairsOf(dest.floor)]
       .filter((s, i, all) => all.findIndex(o => Math.hypot(o.lat - s.lat, (o.lng - s.lng) * 0.62) < 3e-5) === i); // dubbele (<3 m) weg
     if(stale()) return;
+    // kortste eerst op een ondergrens (hemelsbreed + rest); zodra die niet meer onder de beste route ligt, stoppen
+    const lower = s => { const p = projectLatLng(s.lat, s.lng); return Math.hypot(p.x - start.x, p.y - start.y) / floorGeo[floor].pxPerMeter; };
     let best = null;
-    for(const s of candidates){
+    const rests = candidates.map(s => {
       const key = `${dest.floor}|${dest.code}|${s.lat.toFixed(6)},${s.lng.toFixed(6)}`;
       if(!restCache.has(key)){
         const r2 = Route.find(there, projectLatLng(s.lat, s.lng, dest.floor), dest);
         restCache.set(key, r2 && { m: meters(r2, dest.floor), partial: r2.partial });
       }
       const rest = restCache.get(key);
-      const r1 = rest && Route.find(here, start, projectLatLng(s.lat, s.lng));
+      return rest && { s, rest, lb: lower(s) + rest.m };
+    }).filter(Boolean).sort((p, q) => p.lb - q.lb);
+    for(const { s, rest, lb } of rests){
+      if(best && lb >= best.total) break;
+      const r1 = Route.find(here, start, projectLatLng(s.lat, s.lng));
       if(!r1) continue;
       // een route die helemaal klopt gaat altijd voor een route met een onbekend stuk
       const total = meters(r1, floor) + rest.m + (r1.partial || rest.partial ? 1e6 : 0);
