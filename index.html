@@ -42,7 +42,7 @@
     </header>
 
     <main id="app">
-      <section class="view active" data-view="home" id="home">
+      <section class="view active" data-view="home">
         <div class="home-photo"><img src="./assets/aula.jpg" fetchpriority="high" alt="Studenten in de aula van het Hoornbeeck College"></div>
 
         <div class="finder">
@@ -56,7 +56,7 @@
         <ol class="board" id="floorBoard"></ol>
       </section>
 
-      <section class="view" data-view="route" id="route">
+      <section class="view" data-view="route">
         <div class="page-head">
           <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
           <h1>Route</h1>
@@ -91,7 +91,7 @@
 
         <p class="map-hint" id="mapHint">Tik op de kaart waar je nu staat. Sleep om te schuiven, knijp om te zoomen.</p>
 
-        <div class="route-info" id="routeCard">
+        <div class="route-info">
           <h2 id="routeTitle">Waar wil je heen?</h2>
           <p id="routeMeta">Kies een lokaal om de route te zien.</p>
           <div class="route-actions">
@@ -101,7 +101,7 @@
           </div>
         </div>
 
-        <div class="gps-card" id="gpsCard">
+        <div class="gps-card">
           <div class="gps-status">
             <span class="gps-dot" id="gpsDot"></span>
             <div>
@@ -110,11 +110,11 @@
             </div>
           </div>
           <button class="ghost-btn" data-locate><span class="locate-label">Live locatie aanzetten</span></button>
-          <p class="gps-tip" id="gpsTip">Binnen werkt locatie het best met wifi aan en locatie op hoge nauwkeurigheid. Kies zelf de verdieping waar je bent.</p>
+          <p class="gps-tip">Binnen werkt locatie het best met wifi aan en locatie op hoge nauwkeurigheid. Kies zelf de verdieping waar je bent.</p>
         </div>
       </section>
 
-      <section class="view" data-view="buildings" id="buildings">
+      <section class="view" data-view="buildings">
         <div class="page-head">
           <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
           <h1>Lokalen</h1>
@@ -123,7 +123,7 @@
         <div class="building-list" id="buildingList"></div>
       </section>
 
-      <section class="view" data-view="badges" id="badges">
+      <section class="view" data-view="badges">
         <div class="page-head">
           <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
           <h1>Badges</h1>
@@ -140,7 +140,7 @@
         <div class="badge-grid" id="badgeGrid"></div>
       </section>
 
-      <section class="view" data-view="profile" id="profile">
+      <section class="view" data-view="profile">
         <div class="page-head">
           <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
           <h1>Voortgang</h1>
@@ -155,7 +155,7 @@
         <p class="fine">Je voortgang staat alleen op deze telefoon.</p>
       </section>
 
-      <section class="view" data-view="info" id="info">
+      <section class="view" data-view="info">
         <div class="page-head">
           <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
           <h1>Info</h1>

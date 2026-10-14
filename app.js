@@ -1,53 +1,53 @@
-const views = [...document.querySelectorAll(".view")];
-const navButtons = [...document.querySelectorAll("[data-go]")];
-const nav = [...document.querySelectorAll("[data-nav]")];
-const toast = document.querySelector("#toast");
-let currentView = "home";
+/* Hoornbeeck Gebouwenroute: schermen, badges, plattegrond, live locatie en routes.
+   De routeplanner zelf zit in route.js, de kaarten komen uit kaarten/ (gemaakt door ../tools/kaarten-bouwen.mjs).
 
-function showView(name, push = true){
-  const target = document.querySelector(`[data-view="${name}"]`);
-  if(!target) return;
-  views.forEach(v => v.classList.toggle("active", v === target));
-  nav.forEach(b => b.classList.toggle("active", b.dataset.nav === name));
-  currentView = name;
-  if(push) history.pushState({view:name}, "", `#${name}`);
-  window.scrollTo(0, 0);
-  if(name === "route" && typeof window.__fitFloorplan === "function"){
-    requestAnimationFrame(() => window.__fitFloorplan());
-  }
-}
+   Opbouw van dit bestand:
+   1. hulpjes en opslag   4. lokalenlijst        7. live locatie
+   2. schermen en melding  5. kaart (zoomen)      8. route
+   3. badges              6. markers             9. koppelen en starten */
 
-navButtons.forEach(btn => btn.addEventListener("click", () => {
-  showView(btn.dataset.go);
-  if(btn.dataset.focus) document.getElementById(btn.dataset.focus)?.focus();
-}));
-window.addEventListener("popstate", e => showView(e.state?.view || location.hash.slice(1) || "home", false));
-
-const initial = location.hash.slice(1);
-if(initial && document.querySelector(`[data-view="${initial}"]`)) showView(initial, false);
-else showView("home", false);
-
+/* ---------------- 1. hulpjes en opslag ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const icon = id => `<svg class="ic"><use href="#${id}"/></svg>`;
+const shortFloor = f => f === "0" ? "BG" : f;
 // "A.1.01", "a1.01" en "a101" moeten allemaal matchen: puntjes en spaties tellen niet mee
 const searchKey = s => s.toLowerCase().replace(/[.\s]/g, "");
-const search = document.querySelector("#buildingSearch");
-if(search){
-  search.addEventListener("input", () => {
-    const q = searchKey(search.value);
-    document.querySelectorAll(".building-row").forEach(row => {
-      row.hidden = q && !row.dataset.search.includes(q);
-    });
-  });
+
+// localStorage kan ontbreken of vol zijn (privévenster): dan werkt de app gewoon zonder opslag
+const load = (key, fallback) => { try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; }catch{ return fallback; } };
+const save = (key, value) => { try{ localStorage.setItem(key, JSON.stringify(value)); }catch{} };
+
+const STORE_KEY = "hgr_v4"; // v4: { dest } — de gekozen bestemming blijft bewaard
+const store = { dest: null, ...load(STORE_KEY, {}) };
+const saveStore = () => save(STORE_KEY, store);
+
+const floorIndex = fetch("kaarten/index.json").then(r => r.json()); // per verdieping: naam, georeferentie, deuren, lokalen
+let floors = {}; // dezelfde gegevens, zodra geladen (voor wie niet kan wachten)
+floorIndex.then(idx => { floors = idx; });
+
+/* ---------------- 2. schermen en melding ---------------- */
+function showView(name, push = true){
+  const target = $(`[data-view="${name}"]`);
+  if(!target) return;
+  $$(".view").forEach(v => v.classList.toggle("active", v === target));
+  $$("[data-nav]").forEach(b => b.classList.toggle("active", b.dataset.nav === name));
+  if(push) history.pushState({ view: name }, "", `#${name}`);
+  window.scrollTo(0, 0);
+  if(name === "route") requestAnimationFrame(fitFloorplan); // pas als het scherm zichtbaar is heeft de kaart een formaat
 }
 
 let toastTimer;
 function showToast(message){
+  const toast = $("#toast");
   toast.textContent = message;
   toast.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
-/* ---------------- Badges: verdien je door de app te gebruiken; staat alleen in je eigen browser ---------------- */
+/* ---------------- 3. badges: verdien je door de app te gebruiken; staat alleen in je eigen browser ---------------- */
 const BADGES = [
   { id: "route",     title: "Route gestart", xp: 25,  how: "Kies een bestemming",                                   done: s => s.rooms.length >= 1 },
   { id: "gevonden",  title: "Gevonden",      xp: 25,  how: "Zet live locatie aan of tik op de kaart waar je staat", done: s => s.located },
@@ -58,17 +58,13 @@ const BADGES = [
 ];
 const XP_PER_LEVEL = 75;
 const PROGRESS_KEY = "hgr_progress";
-const STORE_KEY = "hgr_v4"; // v4: { dest } — de gekozen bestemming blijft bewaard
 const emptyProgress = () => ({ floors: [], rooms: [], located: false, crossed: false, earned: [] });
-const progress = (() => {
-  try{ return { ...emptyProgress(), ...JSON.parse(localStorage.getItem(PROGRESS_KEY)) }; }
-  catch{ return emptyProgress(); }
-})();
-const xpNow = () => BADGES.filter(b => progress.earned.includes(b.id)).reduce((n, b) => n + b.xp, 0);
+const progress = { ...emptyProgress(), ...load(PROGRESS_KEY, {}) };
 
 function renderBadges(){
-  const xp = xpNow(), level = 1 + Math.floor(xp / XP_PER_LEVEL), into = xp - (level - 1) * XP_PER_LEVEL;
-  const set = (sel, v) => document.querySelectorAll(sel).forEach(el => el.textContent = v);
+  const xp = BADGES.filter(b => progress.earned.includes(b.id)).reduce((n, b) => n + b.xp, 0);
+  const level = 1 + Math.floor(xp / XP_PER_LEVEL), into = xp - (level - 1) * XP_PER_LEVEL;
+  const set = (sel, v) => $$(sel).forEach(el => el.textContent = v);
   set("[data-level]", level);
   set("[data-xp]", xp);
   set("[data-xp-next]", level * XP_PER_LEVEL);
@@ -76,75 +72,69 @@ function renderBadges(){
   set("[data-badge-count]", `${progress.earned.length} van ${BADGES.length}`);
   set("[data-stat-floors]", `${progress.floors.length} van 8`);
   set("[data-stat-rooms]", progress.rooms.length);
-  const bar = document.querySelector("#xpBar");
-  if(bar){ bar.style.width = (into / XP_PER_LEVEL * 100) + "%"; bar.parentElement.setAttribute("aria-valuenow", into); }
-  const grid = document.querySelector("#badgeGrid");
-  if(grid) grid.innerHTML = BADGES.map(b => {
+  const bar = $("#xpBar");
+  bar.style.width = (into / XP_PER_LEVEL * 100) + "%";
+  bar.parentElement.setAttribute("aria-valuenow", into);
+  $("#badgeGrid").innerHTML = BADGES.map(b => {
     const got = progress.earned.includes(b.id);
-    return `<button class="badge ${got ? "unlocked" : "locked"}" data-badge="${b.id}"><span><svg class="ic"><use href="#${got ? "i-check" : "i-lock"}"/></svg></span><b>${b.title}</b><small>${got ? b.xp + " XP behaald" : b.how}</small></button>`;
+    return `<button class="badge ${got ? "unlocked" : "locked"}" data-badge="${b.id}"><span>${icon(got ? "i-check" : "i-lock")}</span><b>${b.title}</b><small>${got ? b.xp + " XP behaald" : b.how}</small></button>`;
   }).join("");
 }
 
 // gebeurtenissen uit de app: kijk daarna of er een badge bij is gekomen
 function track(type, val){
-  const s = progress;
-  if(type === "floor" && !s.floors.includes(val)) s.floors.push(val);
-  else if(type === "dest" && !s.rooms.includes(val)) s.rooms.push(val);
-  else if(type === "located") s.located = true;
-  else if(type === "crossed") s.crossed = true;
-  const fresh = BADGES.filter(b => !s.earned.includes(b.id) && b.done(s));
-  fresh.forEach(b => s.earned.push(b.id));
-  try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(s)); }catch{}
+  const add = (list, v) => list.includes(v) || list.push(v);
+  if(type === "floor") add(progress.floors, val);
+  else if(type === "dest") add(progress.rooms, val);
+  else if(type === "located") progress.located = true;
+  else if(type === "crossed") progress.crossed = true;
+  const fresh = BADGES.filter(b => !progress.earned.includes(b.id) && b.done(progress));
+  progress.earned.push(...fresh.map(b => b.id));
+  save(PROGRESS_KEY, progress);
   renderBadges();
   if(fresh.length) showToast(`Badge behaald: ${fresh.map(b => b.title).join(", ")} (+${fresh.reduce((n, b) => n + b.xp, 0)} XP)`);
 }
 
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-badge]");
-  if(!b) return;
-  const badge = BADGES.find(x => x.id === b.dataset.badge);
-  showToast(progress.earned.includes(badge.id) ? `${badge.title}: behaald` : `${badge.title}: ${badge.how.charAt(0).toLowerCase() + badge.how.slice(1)}`);
-});
-document.querySelector("#resetProgress")?.addEventListener("click", () => {
+function showBadge(id){
+  const badge = BADGES.find(b => b.id === id);
+  showToast(progress.earned.includes(id) ? `${badge.title}: behaald` : `${badge.title}: ${badge.how.charAt(0).toLowerCase() + badge.how.slice(1)}`);
+}
+
+function resetProgress(){
   Object.assign(progress, emptyProgress());
   try{ localStorage.removeItem(PROGRESS_KEY); }catch{}
   renderBadges();
   showToast("Voortgang gewist");
-});
-renderBadges();
+}
 
-/* Lokalenlijst: komt uit kaarten/index.json (gegenereerd uit de bouwtekeningen door tools/kaarten-bouwen.mjs) */
-const buildingList = document.querySelector("#buildingList");
-const floorIndex = fetch("kaarten/index.json").then(r => r.json());
-floorIndex.then(floors => {
-  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-  buildingList.innerHTML = Object.entries(floors)
-    .sort(([a], [b]) => a - b)
-    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><span class="floor">${f === "0" ? "BG" : f}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div><svg class="ic"><use href="#i-chev"/></svg></button>`))
+/* ---------------- 4. lokalenlijst en home ---------------- */
+function renderLists(){
+  const byFloor = dir => Object.entries(floors).sort(([a], [b]) => dir * (a - b));
+  $("#buildingList").innerHTML = byFloor(1)
+    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><span class="floor">${shortFloor(f)}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div>${icon("i-chev")}</button>`))
     .join("");
   // home: verdiepingsbord (hoogste bovenaan, zoals bij de lift) en de laatst gekozen bestemming
-  const short = f => f === "0" ? "BG" : f;
-  document.querySelector("#floorBoard").innerHTML = Object.entries(floors).sort(([a], [b]) => b - a)
-    .map(([f, fl]) => `<li><button data-open-floor="${f}"><span class="num">${short(f)}</span><span class="what"><b>${fl.label}</b><small>${fl.rooms.length} lokalen</small></span><svg class="ic"><use href="#i-chev"/></svg></button></li>`).join("");
-  try{
-    const d = JSON.parse(localStorage.getItem(STORE_KEY))?.dest, last = document.querySelector("#lastRoute");
-    if(d && floors[d.floor]){
-      last.dataset.room = d.code; last.dataset.floor = d.floor; last.hidden = false;
-      last.innerHTML = `<span class="code">${esc(d.code)}</span><span><b>Verder naar je laatste bestemming</b>${esc(d.name || floors[d.floor].label)}</span><svg class="ic"><use href="#i-chev"/></svg>`;
-    }
-  }catch{}
-}).catch(() => { buildingList.innerHTML = `<p class="map-hint">Lokalenlijst kon niet geladen worden.</p>`; });
+  $("#floorBoard").innerHTML = byFloor(-1)
+    .map(([f, fl]) => `<li><button data-open-floor="${f}"><span class="num">${shortFloor(f)}</span><span class="what"><b>${fl.label}</b><small>${fl.rooms.length} lokalen</small></span>${icon("i-chev")}</button></li>`).join("");
+  const d = store.dest, last = $("#lastRoute");
+  if(d && floors[d.floor]){
+    last.dataset.room = d.code;
+    last.dataset.floor = d.floor;
+    last.hidden = false;
+    last.innerHTML = `<span class="code">${esc(d.code)}</span><span><b>Verder naar je laatste bestemming</b>${esc(d.name || floors[d.floor].label)}</span>${icon("i-chev")}`;
+  }
+}
 
-document.addEventListener("click", e => {
-  const open = e.target.closest("[data-open-floor]");
-  if(open){ showView("route"); window.showFloor?.(open.dataset.openFloor); return; }
-  const btn = e.target.closest("[data-room]");
-  if(!btn) return;
-  showView("route");
-  window.showRoom?.(btn.dataset.floor, btn.dataset.room);
-});
+/* ---------------- 5. kaart: plattegrond tonen, zoomen en slepen ---------------- */
+const floorplanWrap = $("#floorplanWrap");
+const floorplanCanvas = $("#floorplanCanvas");
+const floorplanImg = $("#floorplanImg");
+const floorTabs = $("#floorTabs");
 
-/* ---------------- Gebouwenroute: plattegrond uit de bouwtekeningen + live locatie ---------------- */
+let floor = "0";
+let mapW = 1000, mapH = 1000; // grootte van de huidige plattegrond in kaart-eenheden (komt uit de SVG)
+let scale = 1, minScale = 1, maxScale = 4, tx = 0, ty = 0; // zoom en verschuiving van de kaart
+let kTimer = 0;
 
 const floorSvgs = {};
 const loadFloorSvg = f => floorSvgs[f] ??= fetch(`kaarten/${f}.svg`).then(r => {
@@ -152,534 +142,526 @@ const loadFloorSvg = f => floorSvgs[f] ??= fetch(`kaarten/${f}.svg`).then(r => {
   return r.text();
 });
 
-const floorplanWrap = document.querySelector("#floorplanWrap");
-const floorplanCanvas = document.querySelector("#floorplanCanvas");
-const floorplanImg = document.querySelector("#floorplanImg");
-const floorTabs = document.querySelector("#floorTabs");
-const pinMarker = document.querySelector("#pinMarker");
-const startMarker = document.querySelector("#startMarker");
-const routeTitle = document.querySelector("#routeTitle");
-const routeMeta = document.querySelector("#routeMeta");
-const routeNext = document.querySelector("#routeNext");
-const routePick = document.querySelector("#routePick");
-const routeStop = document.querySelector("#routeStop");
-const meMarker = document.querySelector("#meMarker");
-const accuracyMarker = document.querySelector("#accuracyMarker");
-const mapHint = document.querySelector("#mapHint");
-const locateBtn = document.querySelector("#locateBtn");
-const gpsDot = document.querySelector("#gpsDot");
-const gpsStatusText = document.querySelector("#gpsStatusText");
-const gpsAccuracyText = document.querySelector("#gpsAccuracyText");
-
-if(floorplanWrap && floorplanImg){
-  let store = loadStore();
-  let floor = "0";
-  let mapW = 1000, mapH = 1000; // grootte van de huidige plattegrond in kaart-eenheden (komt uit de SVG)
-  let scale = 1, minScale = 1, maxScale = 4, tx = 0, ty = 0;
-  let pointers = new Map();
-  let pinchStartDist = 0, pinchStartScale = 1, kTimer = 0;
-  let dragStart = null, moved = false;
-  let gpsWatchId = null, lastFix = null;
-  let manualStart = null; // { floor, x, y } — getikt "hier ben ik" (als er geen GPS is)
-  let via = null;         // { lat, lng } van de trap waarlangs de route naar een andere verdieping gaat
-
-  function loadStore(){
-    try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {dest:null}; }
-    catch{ return {dest:null}; }
-  }
-  function saveStore(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }catch{} }
-
-  async function setFloor(f){
-    floor = String(f);
-    const tab = floorTabs.querySelector(`button[data-floor="${floor}"]`);
-    floorTabs.querySelectorAll("button").forEach(b => {
-      b.classList.toggle("active", b === tab);
-      b.setAttribute("aria-selected", b === tab ? "true" : "false");
-    });
-    let text;
-    try{ text = await loadFloorSvg(floor); }
-    catch{ delete floorSvgs[floor]; showToast("Plattegrond kon niet geladen worden."); return; }
-    if(floor !== String(f)) return; // intussen al een andere verdieping gekozen
-    track("floor", floor);
-    const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
-    mapW = +svg.getAttribute("width");
-    mapH = +svg.getAttribute("height");
-    ["viewBox", "width", "height"].forEach(a => floorplanImg.setAttribute(a, svg.getAttribute(a)));
-    floorplanImg.replaceChildren(...[...svg.childNodes].map(n => document.importNode(n, true)));
-    floorplanImg.setAttribute("aria-label", `Plattegrond ${tab?.querySelector("small")?.textContent || ""}`);
-    fitToContainer();
-    renderPin();
-    renderStart();
-    renderLiveMarker();
-    updateRoute();
-  }
-
-  function focusOn(x, y){
-    const r = floorplanWrap.getBoundingClientRect();
-    scale = Math.min(maxScale, Math.max(minScale, 0.6));
-    tx = r.width / 2 - x * scale;
-    ty = r.height / 2 - y * scale;
-    clampPan();
-    applyTransform();
-  }
-
-  /* Bestemming kiezen: pin op het lokaal en de route ernaartoe. De kaart blijft op de verdieping
-     waar je nu bent (daar begint de route); zonder startpunt springen we naar de bestemming. */
-  window.showRoom = async (f, code) => {
-    const room = (await floorIndex)[f]?.rooms.find(r => r.code === code);
-    if(!room) return showToast(`${code} staat niet op de plattegrond.`);
-    store.dest = { floor: String(f), code, name: room.name, x: room.x, y: room.y };
-    track("dest", `${f}|${code}`);
-    saveStore();
-    via = null;
-    const haveStart = manualStart || lastFix;
-    await setFloor(haveStart ? floor : f);
-    await new Promise(requestAnimationFrame); // showView() past de kaart ook nog in; daarna pas inzoomen
-    if(floor === store.dest.floor) focusOn(room.x, room.y);
-  };
-
-  floorTabs?.addEventListener("click", e => {
-    const btn = e.target.closest("button[data-floor]");
-    if(btn) setFloor(btn.dataset.floor);
+async function setFloor(f){
+  floor = String(f);
+  const tab = floorTabs.querySelector(`button[data-floor="${floor}"]`);
+  floorTabs.querySelectorAll("button").forEach(b => {
+    b.classList.toggle("active", b === tab);
+    b.setAttribute("aria-selected", b === tab ? "true" : "false");
   });
-
-  function fitToContainer(){
-    const wrapRect = floorplanWrap.getBoundingClientRect();
-    if(wrapRect.width < 10 || wrapRect.height < 10) return;
-    minScale = Math.min(wrapRect.width / mapW, wrapRect.height / mapH);
-    scale = minScale;
-    maxScale = Math.max(1.5, minScale * 4);
-    tx = (wrapRect.width - mapW * scale) / 2;
-    ty = (wrapRect.height - mapH * scale) / 2;
-    applyTransform();
-  }
-
-  function applyTransform(){
-    floorplanCanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-    // --m houdt de markers even groot op het scherm (goedkoop, elk frame)
-    floorplanCanvas.style.setProperty("--m", 1 / scale);
-    // --k houdt de lokaalteksten even groot; dat herschildert de hele kaart, dus pas als het zoomen stopt
-    clearTimeout(kTimer);
-    kTimer = setTimeout(() => {
-      floorplanCanvas.style.setProperty("--k", 1 / scale);
-      floorplanWrap.classList.toggle("far", scale < 0.45);
-    }, 120);
-    // uitgezoomd scrolt 1 vinger de pagina, ingezoomd versleept 1 vinger de kaart
-    floorplanWrap.style.touchAction = scale > minScale * 1.05 ? "none" : "pan-y";
-  }
-
-  function clampPan(){
-    const wrapRect = floorplanWrap.getBoundingClientRect();
-    const iw = mapW * scale, ih = mapH * scale;
-    const margin = 60;
-    tx = Math.min(margin, Math.max(wrapRect.width - iw - margin, tx));
-    ty = Math.min(margin, Math.max(wrapRect.height - ih - margin, ty));
-  }
-
-  function zoomAt(clientX, clientY, factor){
-    const wrapRect = floorplanWrap.getBoundingClientRect();
-    const px = clientX - wrapRect.left, py = clientY - wrapRect.top;
-    const localX = (px - tx) / scale, localY = (py - ty) / scale;
-    scale = Math.min(maxScale, Math.max(minScale, scale * factor));
-    tx = px - localX * scale;
-    ty = py - localY * scale;
-    clampPan();
-    applyTransform();
-  }
-
-  const zoomCenter = factor => {
-    const r = floorplanWrap.getBoundingClientRect();
-    zoomAt(r.left + r.width/2, r.top + r.height/2, factor);
-  };
-  document.querySelector("#zoomIn")?.addEventListener("click", () => zoomCenter(1.4));
-  document.querySelector("#zoomOut")?.addEventListener("click", () => zoomCenter(1/1.4));
-  document.querySelector("#zoomReset")?.addEventListener("click", fitToContainer);
-
-  floorplanWrap.addEventListener("wheel", e => {
-    if(!e.ctrlKey && scale <= minScale * 1.05) return; // uitgezoomd: gewoon de pagina scrollen
-    e.preventDefault();
-    zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1/1.15);
-  }, {passive:false});
-
-  floorplanWrap.addEventListener("pointerdown", e => {
-    if(e.target.closest(".floorplan-zoom")) return; // de zoomknoppen moeten zelf een klik krijgen (geen pointer-capture)
-    floorplanWrap.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if(pointers.size === 1){
-      dragStart = {x:e.clientX, y:e.clientY, tx, ty, t:Date.now()};
-      moved = false;
-      floorplanCanvas.classList.add("dragging");
-    } else if(pointers.size === 2){
-      const pts = [...pointers.values()];
-      pinchStartDist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1;
-      pinchStartScale = scale;
-    }
-  });
-
-  floorplanWrap.addEventListener("pointermove", e => {
-    if(!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if(pointers.size === 2){
-      const pts = [...pointers.values()];
-      const dist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1;
-      const midX = (pts[0].x+pts[1].x)/2, midY = (pts[0].y+pts[1].y)/2;
-      zoomAt(midX, midY, pinchStartScale * (dist/pinchStartDist) / scale);
-      moved = true;
-    } else if(pointers.size === 1 && dragStart){
-      const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
-      if(Math.hypot(dx,dy) > 5) moved = true;
-      tx = dragStart.tx + dx;
-      ty = dragStart.ty + dy;
-      clampPan();
-      applyTransform();
-    }
-  });
-
-  function endPointer(e){
-    const wasTap = pointers.size === 1 && dragStart && !moved && (Date.now() - dragStart.t < 500);
-    pointers.delete(e.pointerId);
-    floorplanCanvas.classList.remove("dragging");
-    if(wasTap) handleTap(dragStart.x, dragStart.y);
-    if(pointers.size < 2){ pinchStartDist = 0; }
-    if(pointers.size === 0){ dragStart = null; }
-  }
-  floorplanWrap.addEventListener("pointerup", endPointer);
-  floorplanWrap.addEventListener("pointercancel", e => { moved = true; endPointer(e); }); // browser pakte het gebaar over (paginascroll): geen tik
-
-  function screenToImagePoint(clientX, clientY){
-    const wrapRect = floorplanWrap.getBoundingClientRect();
-    const px = clientX - wrapRect.left, py = clientY - wrapRect.top;
-    return { x: (px - tx) / scale, y: (py - ty) / scale };
-  }
-
-  // tikken = "hier ben ik": startpunt van de route op deze verdieping
-  function handleTap(clientX, clientY){
-    manualStart = { floor, ...screenToImagePoint(clientX, clientY) };
-    track("located");
-    via = null;
-    renderStart();
-    updateRoute();
-    mapHint.textContent = "Startpunt gezet. Tik ergens anders om het te verplaatsen.";
-  }
-
-  function place(el, pt){
-    el.hidden = !pt;
-    if(pt){ el.style.left = pt.x + "px"; el.style.top = pt.y + "px"; }
-  }
-  // de pin staat net boven het lokaalnummer, zodat dat leesbaar blijft
-  const renderPin = () => {
-    const d = store.dest;
-    place(pinMarker, d && d.floor === floor ? { x: d.x, y: d.y - 16 } : null);
-    floorplanImg.querySelectorAll(".mp-room.active").forEach(r => r.classList.remove("active"));
-    if(d && d.floor === floor) floorplanImg.querySelector(`[data-code="${CSS.escape(d.code)}"]`)?.classList.add("active");
-  };
-  const renderStart = () => place(startMarker, manualStart?.floor === floor ? manualStart : null);
-
-  /* ---- Live locatie (Geolocation API) ----
-     De plattegronden zijn gegeorefereerd (kaarten/index.json → geo, zie tools/kaarten-bouwen.mjs):
-     een lat/lng rekent direct om naar een punt op de kaart, dus kalibreren is niet nodig.
-     GPS weet niet op welke verdieping je bent — die kies je zelf met de tabs. */
-  const floorGeo = {}, floorNames = {};
-  floorIndex.then(idx => {
-    for(const [f, fl] of Object.entries(idx)){ floorGeo[f] = fl.geo; floorNames[f] = fl.label; }
-    renderLiveMarker();
-  }).catch(() => {});
-
-  function projectLatLng(lat, lng, fl = floor){
-    const g = floorGeo[fl];
-    if(!g) return null;
-    const [a, b, c, d, e, f] = g.m;
-    return { x: a*lat + b*lng + c, y: d*lat + e*lng + f, pxPerMeter: g.pxPerMeter };
-  }
-  // omgekeerd: kaartpunt -> lat/lng (om bv. een trap van de ene naar de andere verdieping over te zetten)
-  function toLatLng(x, y, fl = floor){
-    const [a, b, c, d, e, f] = floorGeo[fl].m, det = a*e - b*d;
-    return { lat: (e*(x - c) - b*(y - f)) / det, lng: (a*(y - f) - d*(x - c)) / det };
-  }
-  const onMap = p => p.x >= 0 && p.y >= 0 && p.x <= mapW && p.y <= mapH;
-
-  /* Binnen is een losse GPS/wifi-meting grof (10-60 m). Daarom:
-     1. middelen: recente metingen tellen zwaarder, nauwkeurige metingen veel zwaarder (gewicht 1/acc²);
-     2. de stip altijd op een loopbare plek zetten (niet in een muur of buiten het gebouw);
-     3. tijdens een route: valt de stip binnen de meetonzekerheid van de lijn, dan zetten we hem óp de lijn
-        (zoals Google Maps). Dat maakt de meting niet echt nauwkeuriger, wel bruikbaarder. */
-  const fixes = [];
-  const FIX_WINDOW_MS = 12000;
-  // Hoe lang een meting meetelt hangt af van de nauwkeurigheid: 150 ms per meter onnauwkeurigheid (gemiddelde van de
-  // laatste 3 metingen), tussen 1 en 5 s. Goed signaal = de stip volgt je snel; slecht signaal = langer middelen.
-  const halfLife = () => Math.min(5000, Math.max(1000, 150 * fixes.slice(-3).reduce((s, f) => s + f.acc, 0) / Math.min(fixes.length, 3)));
-  function addFix(c){
-    const now = Date.now();
-    fixes.push({ lat: c.latitude, lng: c.longitude, acc: Math.max(c.accuracy || 30, 3), t: now });
-    while(fixes.length && now - fixes[0].t > FIX_WINDOW_MS) fixes.shift();
-    const half = halfLife();
-    let sw = 0, lat = 0, lng = 0;
-    for(const f of fixes){
-      const w = Math.pow(0.5, (now - f.t) / half) / (f.acc * f.acc);
-      sw += w; lat += w * f.lat; lng += w * f.lng;
-    }
-    const best = Math.min(...fixes.map(f => f.acc));
-    // gecombineerde onzekerheid, maar nooit beter dan de helft van de beste losse meting
-    return { lat: lat / sw, lng: lng / sw, accuracy: Math.max(best * 0.5, 1 / Math.sqrt(sw)), raw: c.accuracy };
-  }
-
-  const gridReady = {}; // verdieping -> raster, zodra geladen (voor synchrone snap)
-  const nearestWalkable = p => (gridReady[floor] && Route.nearest(gridReady[floor], p)) || p;
-  function closestOnLine(pts, p){
-    let best = null, bd = Infinity;
-    for(let k = 1; k < pts.length; k++){
-      const a = pts[k - 1], b = pts[k], dx = b.x - a.x, dy = b.y - a.y, L = dx*dx + dy*dy;
-      const t = L ? Math.max(0, Math.min(1, ((p.x - a.x)*dx + (p.y - a.y)*dy) / L)) : 0;
-      const q = { x: a.x + t*dx, y: a.y + t*dy }, d = Math.hypot(q.x - p.x, q.y - p.y);
-      if(d < bd){ bd = d; best = q; }
-    }
-    return { q: best, d: bd };
-  }
-
-  // positie uit GPS op deze verdieping, op een loopbare plek; null als je niet in het gebouw bent
-  function gpsPoint(){
-    const p = lastFix && projectLatLng(lastFix.lat, lastFix.lng);
-    return p && onMap(p) ? { ...nearestWalkable(p), pxPerMeter: p.pxPerMeter } : null;
-  }
-
-  let routeLine = null; // punten van de getekende route op deze verdieping
-  function renderLiveMarker(){
-    let p = gpsPoint();
-    meMarker.hidden = accuracyMarker.hidden = !p;
-    if(!p) return;
-    if(routeLine){
-      const { q, d } = closestOnLine(routeLine, p);
-      if(q && d <= Math.max(lastFix.accuracy, 8) * p.pxPerMeter) p = { ...q, pxPerMeter: p.pxPerMeter };
-    }
-    meMarker.style.left = accuracyMarker.style.left = p.x + "px";
-    meMarker.style.top = accuracyMarker.style.top = p.y + "px";
-    const r = Math.max(8, lastFix.accuracy * p.pxPerMeter);
-    accuracyMarker.style.width = accuracyMarker.style.height = (r*2) + "px";
-  }
-
-  function setGpsStatus(state, text, sub){
-    gpsDot.classList.remove("on","error");
-    if(state) gpsDot.classList.add(state);
-    if(text) gpsStatusText.textContent = text;
-    if(sub) gpsAccuracyText.textContent = sub;
-  }
-
-  // GeolocationPositionError.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
-  const GEO_ERRORS = {
-    1: "Geen toestemming. Sta locatie toe voor deze site in je browserinstellingen.",
-    2: "Positie niet beschikbaar. Zet locatie (en wifi) aan op je telefoon.",
-    3: "Het duurt lang om je positie te bepalen, we blijven zoeken…",
-  };
-
-  function stopWatch(){
-    if(gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
-    gpsWatchId = null;
-    lastFix = null;
-    fixes.length = 0;
-    renderLiveMarker();
-    setLocateUi(false);
-  }
-
-  // beide knoppen (de knop "Mijn locatie" rechtsboven en de grote knop in de locatiekaart) tonen de status
-  function setLocateUi(on){
-    document.querySelectorAll("[data-locate]").forEach(b => {
-      b.classList.toggle("on", on);
-      b.setAttribute("aria-pressed", on ? "true" : "false");
-      const label = b.querySelector(".locate-label");
-      if(label) label.textContent = b === locateBtn ? (on ? "Locatie aan" : "Mijn locatie") : (on ? "Live locatie uitzetten" : "Live locatie aanzetten");
-    });
-  }
-
-  function onPosition(pos){
-    const first = !lastFix;
-    lastFix = addFix(pos.coords);
-    if(first) track("located");
-    const p = projectLatLng(lastFix.lat, lastFix.lng);
-    const acc = `± ${Math.round(lastFix.accuracy)} m (gemiddeld over ${fixes.length} meting${fixes.length === 1 ? "" : "en"}; laatste ± ${Math.round(lastFix.raw)} m)`;
-    if(p && onMap(p)){
-      setGpsStatus("on", "Live locatie actief", `${acc} · kies zelf je verdieping`);
-      if(first) focusOn(p.x, p.y);
-    } else if(p){
-      const dist = Math.hypot(p.x - mapW/2, p.y - mapH/2) / p.pxPerMeter;
-      setGpsStatus("on", "Je bent niet in het gebouw", `${acc} · ongeveer ${dist < 1000 ? Math.round(dist) + " m" : (dist/1000).toFixed(1) + " km"} van het Hoornbeeck`);
-    }
-    renderLiveMarker();
-    // een nieuwe route zoeken is zwaar: pas als je >1,5 m van het vorige startpunt staat
-    const q = gpsPoint();
-    if(!manualStart && !(q && routedFrom?.floor === floor && Math.hypot(q.x - routedFrom.x, q.y - routedFrom.y) < 1.5 * q.pxPerMeter)) updateRoute();
-  }
-
-  function onError(err){
-    setGpsStatus("error", "Locatie niet beschikbaar", GEO_ERRORS[err.code] || err.message);
-    if(err.code === 1) stopWatch(); // zonder toestemming heeft blijven kijken geen zin
-  }
-
-  document.addEventListener("click", e => {
-    if(!e.target.closest("[data-locate]")) return;
-    if(gpsWatchId !== null){
-      stopWatch();
-      setGpsStatus(null, "Live locatie uitgeschakeld", "Zet je live locatie aan om jezelf als blauwe stip op de kaart te zien.");
-      return;
-    }
-    if(!("geolocation" in navigator)){
-      setGpsStatus("error", "Locatie niet ondersteund", "Deze browser ondersteunt de Geolocation API niet.");
-      return;
-    }
-    if(!window.isSecureContext){
-      setGpsStatus("error", "Locatie werkt alleen via https", "Open de app via GitHub Pages (https), niet via http:// of een IP-adres.");
-      return;
-    }
-    setGpsStatus(null, "Locatie zoeken…", "Even geduld, we bepalen je positie.");
-    setLocateUi(true);
-    manualStart = null; // live locatie gaat voor een getikt startpunt
-    renderStart();
-    gpsWatchId = navigator.geolocation.watchPosition(onPosition, onError, {
-      enableHighAccuracy: true, // GPS + wifi gebruiken i.p.v. alleen een snelle, grove schatting
-      maximumAge: 0,            // altijd een verse positie
-      timeout: 27000,
-    });
-  });
-
-  /* ---- Route (zoals Google Maps) ----
-     Start = getikt punt, anders je live locatie, anders (net van de trap af) de trap waar je vandaan komt.
-     Bestemming op een andere verdieping: route naar de beste trap; trappen koppelen we tussen
-     verdiepingen via hun lat/lng (ze staan recht boven elkaar; de nummers verschillen per verdieping). */
-  const grids = {}, stairs = {}, restCache = new Map();
-  let routeSeq = 0, routedFrom = null; // routedFrom: startpunt van de laatst berekende route
-
-  // de originele muurlijnen voor de routeplanner staan los van de tekening (kaarten/<f>.nav.json)
-  const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), fetch(`kaarten/${f}.nav.json`).then(r => r.json()), floorIndex]).then(([text, nav, idx]) => {
-    const [, w, h] = text.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
-    return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, idx[f].doors || [], +w, +h, idx[f].geo.pxPerMeter, idx[f].openings || [], idx[f].air || []);
-  });
-  const stairsOf = f => stairs[f] ??= loadFloorSvg(f).then(text =>
-    [...text.matchAll(/class="mp-room trap" data-code="[^"]*" transform="translate\(([\d.]+),([\d.]+)\)"/g)]
-      .map(m => toLatLng(+m[1], +m[2], f)));
-
-  const floorLabel = f => floorNames[f] || `Verdieping ${f}`;
-  const meters = (r, f) => r.length / floorGeo[f].pxPerMeter;
-  // de tekening mist ergens een doorgang: de lijn stopt zo dichtbij als het kan (nooit door een muur)
-  const partialText = (r, f, what = "je bestemming") =>
-    `${walkText(meters(r, f))} tot zo dicht mogelijk bij ${what}. Het laatste stuk staat niet als doorgang in de bouwtekening; zoek daar de deur of volg de bordjes.`;
-  const walkText = m => `${Math.round(m)} m · ± ${Math.max(1, Math.round(m / 1.3 / 60))} min lopen`;
-
-  function currentStart(){
-    if(manualStart?.floor === floor) return manualStart;
-    const p = gpsPoint();
-    if(p) return p;
-    if(via && floor === store.dest?.floor) return projectLatLng(via.lat, via.lng); // net van de trap af
-    return null;
-  }
-
-  function drawRoute(r){
-    floorplanImg.querySelector(".mp-route")?.remove();
-    const wasDrawn = !!routeLine;
-    routeLine = r ? r.points : null;
-    renderLiveMarker();
-    if(!r) return;
-    const pts = r.points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("class", wasDrawn ? "mp-route" : "mp-route draw"); // de lijn tekent zich alleen in bij een nieuwe route, niet bij elke GPS-meting
-    g.innerHTML = `<polyline class="mp-route-casing" pathLength="1" points="${pts}"/><polyline class="mp-route-line" pathLength="1" points="${pts}"/>`;
-    floorplanImg.querySelector(".mp-rooms")?.before(g); // onder de lokaalnummers, zodat die leesbaar blijven
-  }
-
-  function routeCard(title, meta, next){
-    routeTitle.textContent = title;
-    routeMeta.textContent = meta;
-    routeNext.hidden = !next;
-    if(next){ routeNext.textContent = next.label; routeNext.onclick = next.action; }
-    routePick.textContent = store.dest ? "Andere bestemming" : "Kies bestemming";
-    routeStop.hidden = !store.dest;
-  }
-
-  async function updateRoute(){
-    const seq = ++routeSeq, dest = store.dest;
-    const stale = () => seq !== routeSeq;
-    if(!dest){ drawRoute(null); return routeCard("Waar wil je heen?", "Kies een lokaal om een route te krijgen."); }
-    const title = `Naar ${dest.code}${dest.name ? " · " + dest.name : ""}`;
-    await floorIndex;
-    const start = currentStart();
-    routedFrom = start && { floor, x: start.x, y: start.y };
-    if(!start){
-      drawRoute(null);
-      return routeCard(title, `${floorLabel(dest.floor)}. Kies de verdieping waar je bent en tik op de kaart waar je staat, of tik rechtsboven op "Mijn locatie".`);
-    }
-    const here = await gridFor(floor);
-    if(stale()) return;
-    if(floor === dest.floor){
-      const r = Route.find(here, start, dest);
-      drawRoute(r);
-      return routeCard(title, !r ? "Geen route gevonden vanaf dit punt." : r.partial ? partialText(r, floor) : walkText(meters(r, floor)));
-    }
-    // andere verdieping: probeer elke trap (van deze én de doelverdieping) en neem de kortste totale route
-    const there = await gridFor(dest.floor);
-    const candidates = [...await stairsOf(floor), ...await stairsOf(dest.floor)]
-      .filter((s, i, all) => all.findIndex(o => Math.hypot(o.lat - s.lat, (o.lng - s.lng) * 0.62) < 3e-5) === i); // dubbele (<3 m) weg
-    if(stale()) return;
-    // kortste eerst op een ondergrens (hemelsbreed + rest); zodra die niet meer onder de beste route ligt, stoppen
-    const lower = s => { const p = projectLatLng(s.lat, s.lng); return Math.hypot(p.x - start.x, p.y - start.y) / floorGeo[floor].pxPerMeter; };
-    let best = null;
-    const rests = candidates.map(s => {
-      const key = `${dest.floor}|${dest.code}|${s.lat.toFixed(6)},${s.lng.toFixed(6)}`;
-      if(!restCache.has(key)){
-        const r2 = Route.find(there, projectLatLng(s.lat, s.lng, dest.floor), dest);
-        restCache.set(key, r2 && { m: meters(r2, dest.floor), partial: r2.partial });
-      }
-      const rest = restCache.get(key);
-      return rest && { s, rest, lb: lower(s) + rest.m };
-    }).filter(Boolean).sort((p, q) => p.lb - q.lb);
-    for(const { s, rest, lb } of rests){
-      if(best && lb >= best.total) break;
-      const r1 = Route.find(here, start, projectLatLng(s.lat, s.lng));
-      if(!r1) continue;
-      // een route die helemaal klopt gaat altijd voor een route met een onbekend stuk
-      const total = meters(r1, floor) + rest.m + (r1.partial || rest.partial ? 1e6 : 0);
-      if(!best || total < best.total) best = { total, r1, rest, s };
-    }
-    if(stale()) return;
-    if(!best){ drawRoute(null); return routeCard(title, "Geen trap gevonden naar die verdieping."); }
-    via = best.s;
-    track("crossed");
-    drawRoute(best.r1);
-    routeCard(title, best.r1.partial ? partialText(best.r1, floor, "de trap")
-        : `Loop naar de trap (${walkText(meters(best.r1, floor))}) en ga naar ${floorLabel(dest.floor).toLowerCase()}. Daarna nog ${Math.round(best.rest.m)} m${best.rest.partial ? ", het laatste stuk staat niet op de kaart" : ""}.`,
-      { label: `Ik ben op ${floorLabel(dest.floor).toLowerCase()} →`, action: () => { manualStart = null; setFloor(dest.floor); } });
-  }
-
-  routePick?.addEventListener("click", () => {
-    showView("buildings");
-    document.querySelector("#buildingSearch")?.focus();
-  });
-  routeStop?.addEventListener("click", () => {
-    store.dest = null;
-    via = null;
-    saveStore();
-    renderPin();
-    updateRoute();
-  });
-
-  // alleen opnieuw passend maken als de breedte echt verandert: op telefoons vuurt "resize" ook
-  // als de adresbalk in-/uitschuift tijdens scrollen, en dan zou je zoom steeds verspringen
-  let lastWidth = window.innerWidth;
-  window.addEventListener("resize", () => {
-    if(window.innerWidth === lastWidth) return;
-    lastWidth = window.innerWidth;
-    fitToContainer();
-  });
-  window.__fitFloorplan = () => { fitToContainer(); renderPin(); renderLiveMarker(); };
-  window.showFloor = setFloor;
-  setFloor("0");
+  let text;
+  try{ text = await loadFloorSvg(floor); }
+  catch{ delete floorSvgs[floor]; showToast("Plattegrond kon niet geladen worden."); return; }
+  if(floor !== String(f)) return; // intussen al een andere verdieping gekozen
+  track("floor", floor);
+  const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
+  mapW = +svg.getAttribute("width");
+  mapH = +svg.getAttribute("height");
+  ["viewBox", "width", "height"].forEach(a => floorplanImg.setAttribute(a, svg.getAttribute(a)));
+  floorplanImg.replaceChildren(...[...svg.childNodes].map(n => document.importNode(n, true)));
+  floorplanImg.setAttribute("aria-label", `Plattegrond ${tab?.querySelector("small")?.textContent || ""}`);
+  fitToContainer();
+  renderPin();
+  renderStart();
+  renderLiveMarker();
+  updateRoute();
 }
 
+const wrapBox = () => floorplanWrap.getBoundingClientRect();
+
+function applyTransform(){
+  floorplanCanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+  // --m houdt de markers even groot op het scherm (goedkoop, elk frame)
+  floorplanCanvas.style.setProperty("--m", 1 / scale);
+  // --k houdt de lokaalteksten even groot; dat herschildert de hele kaart, dus pas als het zoomen stopt
+  clearTimeout(kTimer);
+  kTimer = setTimeout(() => {
+    floorplanCanvas.style.setProperty("--k", 1 / scale);
+    floorplanWrap.classList.toggle("far", scale < 0.45);
+  }, 120);
+  // uitgezoomd scrolt 1 vinger de pagina, ingezoomd versleept 1 vinger de kaart
+  floorplanWrap.style.touchAction = scale > minScale * 1.05 ? "none" : "pan-y";
+}
+
+function fitToContainer(){
+  const box = wrapBox();
+  if(box.width < 10 || box.height < 10) return;
+  minScale = Math.min(box.width / mapW, box.height / mapH);
+  scale = minScale;
+  maxScale = Math.max(1.5, minScale * 4);
+  tx = (box.width - mapW * scale) / 2;
+  ty = (box.height - mapH * scale) / 2;
+  applyTransform();
+}
+
+function clampPan(){
+  const box = wrapBox(), margin = 60;
+  tx = Math.min(margin, Math.max(box.width - mapW * scale - margin, tx));
+  ty = Math.min(margin, Math.max(box.height - mapH * scale - margin, ty));
+}
+
+// zoom met `factor` rond een punt van het scherm, zodat dat punt op zijn plek blijft
+function zoomAt(clientX, clientY, factor){
+  const box = wrapBox();
+  const px = clientX - box.left, py = clientY - box.top;
+  const localX = (px - tx) / scale, localY = (py - ty) / scale;
+  scale = Math.min(maxScale, Math.max(minScale, scale * factor));
+  tx = px - localX * scale;
+  ty = py - localY * scale;
+  clampPan();
+  applyTransform();
+}
+
+function zoomCenter(factor){
+  const box = wrapBox();
+  zoomAt(box.left + box.width / 2, box.top + box.height / 2, factor);
+}
+
+function focusOn(x, y){
+  const box = wrapBox();
+  scale = Math.min(maxScale, Math.max(minScale, 0.6));
+  tx = box.width / 2 - x * scale;
+  ty = box.height / 2 - y * scale;
+  clampPan();
+  applyTransform();
+}
+
+const screenToMap = (clientX, clientY) => {
+  const box = wrapBox();
+  return { x: (clientX - box.left - tx) / scale, y: (clientY - box.top - ty) / scale };
+};
+
+// alleen opnieuw passend maken als de breedte echt verandert: op telefoons vuurt "resize" ook
+// als de adresbalk in-/uitschuift tijdens scrollen, en dan zou je zoom steeds verspringen
+let lastWidth = window.innerWidth;
+window.addEventListener("resize", () => {
+  if(window.innerWidth === lastWidth) return;
+  lastWidth = window.innerWidth;
+  fitToContainer();
+});
+function fitFloorplan(){ fitToContainer(); renderPin(); renderLiveMarker(); }
+
+/* Gebaren: 1 vinger of muis = slepen (of tikken), 2 vingers = knijpen, muiswiel met ctrl = zoomen */
+const pointers = new Map();
+let pinchStartDist = 0, pinchStartScale = 1;
+let dragStart = null, moved = false;
+
+floorplanWrap.addEventListener("wheel", e => {
+  if(!e.ctrlKey && scale <= minScale * 1.05) return; // uitgezoomd: gewoon de pagina scrollen
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+}, { passive: false });
+
+const pinch = () => {
+  const [a, b] = [...pointers.values()];
+  return { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, midX: (a.x + b.x) / 2, midY: (a.y + b.y) / 2 };
+};
+
+floorplanWrap.addEventListener("pointerdown", e => {
+  if(e.target.closest(".floorplan-zoom")) return; // de zoomknoppen moeten zelf een klik krijgen (geen pointer-capture)
+  floorplanWrap.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if(pointers.size === 1){
+    dragStart = { x: e.clientX, y: e.clientY, tx, ty, t: Date.now() };
+    moved = false;
+    floorplanCanvas.classList.add("dragging");
+  } else if(pointers.size === 2){
+    pinchStartDist = pinch().dist;
+    pinchStartScale = scale;
+  }
+});
+
+floorplanWrap.addEventListener("pointermove", e => {
+  if(!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if(pointers.size === 2){
+    const { dist, midX, midY } = pinch();
+    zoomAt(midX, midY, pinchStartScale * (dist / pinchStartDist) / scale);
+    moved = true;
+  } else if(pointers.size === 1 && dragStart){
+    const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+    if(Math.hypot(dx, dy) > 5) moved = true;
+    tx = dragStart.tx + dx;
+    ty = dragStart.ty + dy;
+    clampPan();
+    applyTransform();
+  }
+});
+
+function endPointer(e){
+  const wasTap = pointers.size === 1 && dragStart && !moved && (Date.now() - dragStart.t < 500);
+  pointers.delete(e.pointerId);
+  floorplanCanvas.classList.remove("dragging");
+  if(wasTap) handleTap(dragStart.x, dragStart.y);
+  if(pointers.size === 0) dragStart = null;
+}
+floorplanWrap.addEventListener("pointerup", endPointer);
+floorplanWrap.addEventListener("pointercancel", e => { moved = true; endPointer(e); }); // browser pakte het gebaar over (paginascroll): geen tik
+
+/* ---------------- 6. markers: bestemming, startpunt ---------------- */
+let manualStart = null; // { floor, x, y } — getikt "hier ben ik" (als er geen GPS is)
+
+function place(el, pt){
+  el.hidden = !pt;
+  if(pt){ el.style.left = pt.x + "px"; el.style.top = pt.y + "px"; }
+}
+// de pin staat net boven het lokaalnummer, zodat dat leesbaar blijft
+function renderPin(){
+  const d = store.dest, here = d && d.floor === floor;
+  place($("#pinMarker"), here ? { x: d.x, y: d.y - 16 } : null);
+  floorplanImg.querySelectorAll(".mp-room.active").forEach(r => r.classList.remove("active"));
+  if(here) floorplanImg.querySelector(`[data-code="${CSS.escape(d.code)}"]`)?.classList.add("active");
+}
+const renderStart = () => place($("#startMarker"), manualStart?.floor === floor ? manualStart : null);
+
+// tikken = "hier ben ik": startpunt van de route op deze verdieping
+function handleTap(clientX, clientY){
+  manualStart = { floor, ...screenToMap(clientX, clientY) };
+  track("located");
+  via = null;
+  renderStart();
+  updateRoute();
+  $("#mapHint").textContent = "Startpunt gezet. Tik ergens anders om het te verplaatsen.";
+}
+
+/* Bestemming kiezen: pin op het lokaal en de route ernaartoe. De kaart blijft op de verdieping
+   waar je nu bent (daar begint de route); zonder startpunt springen we naar de bestemming. */
+async function showRoom(f, code){
+  await floorIndex;
+  const room = floors[f]?.rooms.find(r => r.code === code);
+  if(!room) return showToast(`${code} staat niet op de plattegrond.`);
+  store.dest = { floor: String(f), code, name: room.name, x: room.x, y: room.y };
+  track("dest", `${f}|${code}`);
+  saveStore();
+  via = null;
+  await setFloor(manualStart || lastFix ? floor : f);
+  await new Promise(requestAnimationFrame); // showView() past de kaart ook nog in; daarna pas inzoomen
+  if(floor === store.dest.floor) focusOn(room.x, room.y);
+}
+
+/* ---------------- 7. live locatie (Geolocation API) ----------------
+   De plattegronden zijn gegeorefereerd (kaarten/index.json → geo, zie tools/kaarten-bouwen.mjs):
+   een lat/lng rekent direct om naar een punt op de kaart, dus kalibreren is niet nodig.
+   GPS weet niet op welke verdieping je bent — die kies je zelf met de tabs. */
+let gpsWatchId = null, lastFix = null;
+
+function projectLatLng(lat, lng, fl = floor){
+  const g = floors[fl]?.geo;
+  if(!g) return null;
+  const [a, b, c, d, e, f] = g.m;
+  return { x: a*lat + b*lng + c, y: d*lat + e*lng + f, pxPerMeter: g.pxPerMeter };
+}
+// omgekeerd: kaartpunt -> lat/lng (om bv. een trap van de ene naar de andere verdieping over te zetten)
+function toLatLng(x, y, fl = floor){
+  const [a, b, c, d, e, f] = floors[fl].geo.m, det = a*e - b*d;
+  return { lat: (e*(x - c) - b*(y - f)) / det, lng: (a*(y - f) - d*(x - c)) / det };
+}
+const onMap = p => p.x >= 0 && p.y >= 0 && p.x <= mapW && p.y <= mapH;
+
+/* Binnen is een losse GPS/wifi-meting grof (10-60 m). Daarom:
+   1. middelen: recente metingen tellen zwaarder, nauwkeurige metingen veel zwaarder (gewicht 1/acc²). Hoe lang een meting
+      meetelt hangt van de nauwkeurigheid af: bij een goed signaal volgt de stip je snel, bij een slecht signaal middelen we langer;
+   2. de stip altijd op een loopbare plek zetten (niet in een muur of buiten het gebouw);
+   3. tijdens een route: valt de stip binnen de meetonzekerheid van de lijn, dan zetten we hem óp de lijn
+      (zoals Google Maps). Dat maakt de meting niet echt nauwkeuriger, wel bruikbaarder. */
+const fixes = [];
+const FIX_WINDOW_MS = 12000;
+// halfwaardetijd = 150 ms per meter onnauwkeurigheid (gemiddelde van de laatste 3 metingen), tussen 1 en 5 s
+const halfLife = () => Math.min(5000, Math.max(1000, 150 * fixes.slice(-3).reduce((s, f) => s + f.acc, 0) / Math.min(fixes.length, 3)));
+
+function addFix(c){
+  const now = Date.now();
+  fixes.push({ lat: c.latitude, lng: c.longitude, acc: Math.max(c.accuracy || 30, 3), t: now });
+  while(fixes.length && now - fixes[0].t > FIX_WINDOW_MS) fixes.shift();
+  const half = halfLife();
+  let sw = 0, lat = 0, lng = 0;
+  for(const f of fixes){
+    const w = Math.pow(0.5, (now - f.t) / half) / (f.acc * f.acc);
+    sw += w; lat += w * f.lat; lng += w * f.lng;
+  }
+  const best = Math.min(...fixes.map(f => f.acc));
+  // gecombineerde onzekerheid, maar nooit beter dan de helft van de beste losse meting
+  return { lat: lat / sw, lng: lng / sw, accuracy: Math.max(best * 0.5, 1 / Math.sqrt(sw)), raw: c.accuracy };
+}
+
+const gridReady = {}; // verdieping -> raster, zodra geladen (voor synchrone snap)
+const nearestWalkable = p => (gridReady[floor] && Route.nearest(gridReady[floor], p)) || p;
+
+function closestOnLine(pts, p){
+  let best = null, bd = Infinity;
+  for(let k = 1; k < pts.length; k++){
+    const a = pts[k - 1], b = pts[k], dx = b.x - a.x, dy = b.y - a.y, L = dx*dx + dy*dy;
+    const t = L ? Math.max(0, Math.min(1, ((p.x - a.x)*dx + (p.y - a.y)*dy) / L)) : 0;
+    const q = { x: a.x + t*dx, y: a.y + t*dy }, d = Math.hypot(q.x - p.x, q.y - p.y);
+    if(d < bd){ bd = d; best = q; }
+  }
+  return { q: best, d: bd };
+}
+
+// positie uit GPS op deze verdieping, op een loopbare plek; null als je niet in het gebouw bent
+function gpsPoint(){
+  const p = lastFix && projectLatLng(lastFix.lat, lastFix.lng);
+  return p && onMap(p) ? { ...nearestWalkable(p), pxPerMeter: p.pxPerMeter } : null;
+}
+
+let routeLine = null; // punten van de getekende route op deze verdieping
+function renderLiveMarker(){
+  const me = $("#meMarker"), accuracy = $("#accuracyMarker");
+  let p = gpsPoint();
+  me.hidden = accuracy.hidden = !p;
+  if(!p) return;
+  if(routeLine){
+    const { q, d } = closestOnLine(routeLine, p);
+    if(q && d <= Math.max(lastFix.accuracy, 8) * p.pxPerMeter) p = { ...q, pxPerMeter: p.pxPerMeter };
+  }
+  me.style.left = accuracy.style.left = p.x + "px";
+  me.style.top = accuracy.style.top = p.y + "px";
+  accuracy.style.width = accuracy.style.height = (Math.max(8, lastFix.accuracy * p.pxPerMeter) * 2) + "px";
+}
+
+function setGpsStatus(state, text, sub){
+  const dot = $("#gpsDot");
+  dot.classList.remove("on", "error");
+  if(state) dot.classList.add(state);
+  if(text) $("#gpsStatusText").textContent = text;
+  if(sub) $("#gpsAccuracyText").textContent = sub;
+}
+
+// GeolocationPositionError.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+const GEO_ERRORS = {
+  1: "Geen toestemming. Sta locatie toe voor deze site in je browserinstellingen.",
+  2: "Positie niet beschikbaar. Zet locatie (en wifi) aan op je telefoon.",
+  3: "Het duurt lang om je positie te bepalen, we blijven zoeken…",
+};
+
+// beide knoppen (de knop "Mijn locatie" rechtsboven en de grote knop in de locatiekaart) tonen de status
+function setLocateUi(on){
+  $$("[data-locate]").forEach(b => {
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    const label = b.querySelector(".locate-label");
+    if(label) label.textContent = b.id === "locateBtn" ? (on ? "Locatie aan" : "Mijn locatie") : (on ? "Live locatie uitzetten" : "Live locatie aanzetten");
+  });
+}
+
+function stopWatch(){
+  if(gpsWatchId !== null) navigator.geolocation.clearWatch(gpsWatchId);
+  gpsWatchId = null;
+  lastFix = null;
+  fixes.length = 0;
+  renderLiveMarker();
+  setLocateUi(false);
+}
+
+function onPosition(pos){
+  const first = !lastFix;
+  lastFix = addFix(pos.coords);
+  if(first) track("located");
+  const p = projectLatLng(lastFix.lat, lastFix.lng);
+  const acc = `± ${Math.round(lastFix.accuracy)} m (gemiddeld over ${fixes.length} meting${fixes.length === 1 ? "" : "en"}; laatste ± ${Math.round(lastFix.raw)} m)`;
+  if(p && onMap(p)){
+    setGpsStatus("on", "Live locatie actief", `${acc} · kies zelf je verdieping`);
+    if(first) focusOn(p.x, p.y);
+  } else if(p){
+    const dist = Math.hypot(p.x - mapW/2, p.y - mapH/2) / p.pxPerMeter;
+    setGpsStatus("on", "Je bent niet in het gebouw", `${acc} · ongeveer ${dist < 1000 ? Math.round(dist) + " m" : (dist/1000).toFixed(1) + " km"} van het Hoornbeeck`);
+  }
+  renderLiveMarker();
+  // een nieuwe route zoeken is zwaar: pas als je >1,5 m van het vorige startpunt staat
+  const q = gpsPoint();
+  if(!manualStart && !(q && routedFrom?.floor === floor && Math.hypot(q.x - routedFrom.x, q.y - routedFrom.y) < 1.5 * q.pxPerMeter)) updateRoute();
+}
+
+function onError(err){
+  setGpsStatus("error", "Locatie niet beschikbaar", GEO_ERRORS[err.code] || err.message);
+  if(err.code === 1) stopWatch(); // zonder toestemming heeft blijven kijken geen zin
+}
+
+function toggleLocate(){
+  if(gpsWatchId !== null){
+    stopWatch();
+    return setGpsStatus(null, "Live locatie uitgeschakeld", "Zet je live locatie aan om jezelf als blauwe stip op de kaart te zien.");
+  }
+  if(!("geolocation" in navigator)) return setGpsStatus("error", "Locatie niet ondersteund", "Deze browser ondersteunt de Geolocation API niet.");
+  if(!window.isSecureContext) return setGpsStatus("error", "Locatie werkt alleen via https", "Open de app via GitHub Pages (https), niet via http:// of een IP-adres.");
+  setGpsStatus(null, "Locatie zoeken…", "Even geduld, we bepalen je positie.");
+  setLocateUi(true);
+  manualStart = null; // live locatie gaat voor een getikt startpunt
+  renderStart();
+  gpsWatchId = navigator.geolocation.watchPosition(onPosition, onError, {
+    enableHighAccuracy: true, // GPS + wifi gebruiken i.p.v. alleen een snelle, grove schatting
+    maximumAge: 0,            // altijd een verse positie
+    timeout: 27000,
+  });
+}
+
+/* ---------------- 8. route (zoals Google Maps) ----------------
+   Start = getikt punt, anders je live locatie, anders (net van de trap af) de trap waar je vandaan komt.
+   Bestemming op een andere verdieping: route naar de beste trap; trappen koppelen we tussen
+   verdiepingen via hun lat/lng (ze staan recht boven elkaar; de nummers verschillen per verdieping). */
+const grids = {}, stairs = {}, restCache = new Map();
+let routeSeq = 0, routedFrom = null; // routedFrom: startpunt van de laatst berekende route
+let via = null; // { lat, lng } van de trap waarlangs de route naar een andere verdieping gaat
+
+// de originele muurlijnen voor de routeplanner staan los van de tekening (kaarten/<f>.nav.json)
+const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), fetch(`kaarten/${f}.nav.json`).then(r => r.json()), floorIndex]).then(([text, nav]) => {
+  const [, w, h] = text.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+  const fl = floors[f];
+  return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, fl.doors || [], +w, +h, fl.geo.pxPerMeter, fl.openings || [], fl.air || []);
+});
+const stairsOf = f => stairs[f] ??= loadFloorSvg(f).then(text =>
+  [...text.matchAll(/class="mp-room trap" data-code="[^"]*" transform="translate\(([\d.]+),([\d.]+)\)"/g)]
+    .map(m => toLatLng(+m[1], +m[2], f)));
+
+const floorLabel = f => floors[f]?.label || `Verdieping ${f}`;
+const meters = (r, f) => r.length / floors[f].geo.pxPerMeter;
+const walkText = m => `${Math.round(m)} m · ± ${Math.max(1, Math.round(m / 1.3 / 60))} min lopen`;
+// de tekening mist ergens een doorgang: de lijn stopt zo dichtbij als het kan (nooit door een muur)
+const partialText = (r, f, what = "je bestemming") =>
+  `${walkText(meters(r, f))} tot zo dicht mogelijk bij ${what}. Het laatste stuk staat niet als doorgang in de bouwtekening; zoek daar de deur of volg de bordjes.`;
+
+function currentStart(){
+  if(manualStart?.floor === floor) return manualStart;
+  const p = gpsPoint();
+  if(p) return p;
+  if(via && floor === store.dest?.floor) return projectLatLng(via.lat, via.lng); // net van de trap af
+  return null;
+}
+
+function drawRoute(r){
+  floorplanImg.querySelector(".mp-route")?.remove();
+  const wasDrawn = !!routeLine;
+  routeLine = r ? r.points : null;
+  renderLiveMarker();
+  if(!r) return;
+  const pts = r.points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.setAttribute("class", wasDrawn ? "mp-route" : "mp-route draw"); // de lijn tekent zich alleen in bij een nieuwe route, niet bij elke GPS-meting
+  g.innerHTML = `<polyline class="mp-route-casing" pathLength="1" points="${pts}"/><polyline class="mp-route-line" pathLength="1" points="${pts}"/>`;
+  floorplanImg.querySelector(".mp-rooms")?.before(g); // onder de lokaalnummers, zodat die leesbaar blijven
+}
+
+function routeCard(title, meta, next){
+  $("#routeTitle").textContent = title;
+  $("#routeMeta").textContent = meta;
+  const nextBtn = $("#routeNext");
+  nextBtn.hidden = !next;
+  if(next){ nextBtn.textContent = next.label; nextBtn.onclick = next.action; }
+  $("#routePick").textContent = store.dest ? "Andere bestemming" : "Kies bestemming";
+  $("#routeStop").hidden = !store.dest;
+}
+
+// Kies de trap met de kortste totale route: eerst naar de trap op deze verdieping (here), dan verder op de doelverdieping (there).
+// Kortste eerst op een ondergrens (hemelsbreed + rest); zodra die niet meer onder de beste route ligt, stoppen.
+function bestStairs(candidates, start, dest, here, there){
+  const lower = s => { const p = projectLatLng(s.lat, s.lng); return Math.hypot(p.x - start.x, p.y - start.y) / floors[floor].geo.pxPerMeter; };
+  const rests = candidates.map(s => {
+    const key = `${dest.floor}|${dest.code}|${s.lat.toFixed(6)},${s.lng.toFixed(6)}`;
+    if(!restCache.has(key)){
+      const r2 = Route.find(there, projectLatLng(s.lat, s.lng, dest.floor), dest);
+      restCache.set(key, r2 && { m: meters(r2, dest.floor), partial: r2.partial });
+    }
+    const rest = restCache.get(key);
+    return rest && { s, rest, lb: lower(s) + rest.m };
+  }).filter(Boolean).sort((p, q) => p.lb - q.lb);
+  let best = null;
+  for(const { s, rest, lb } of rests){
+    if(best && lb >= best.total) break;
+    const r1 = Route.find(here, start, projectLatLng(s.lat, s.lng));
+    if(!r1) continue;
+    // een route die helemaal klopt gaat altijd voor een route met een onbekend stuk
+    const total = meters(r1, floor) + rest.m + (r1.partial || rest.partial ? 1e6 : 0);
+    if(!best || total < best.total) best = { total, r1, rest, s };
+  }
+  return best;
+}
+
+async function updateRoute(){
+  const seq = ++routeSeq, dest = store.dest;
+  const stale = () => seq !== routeSeq; // er is intussen een nieuwere route aangevraagd
+  if(!dest){ drawRoute(null); return routeCard("Waar wil je heen?", "Kies een lokaal om een route te krijgen."); }
+  const title = `Naar ${dest.code}${dest.name ? " · " + dest.name : ""}`;
+  await floorIndex;
+  const start = currentStart();
+  routedFrom = start && { floor, x: start.x, y: start.y };
+  if(!start){
+    drawRoute(null);
+    return routeCard(title, `${floorLabel(dest.floor)}. Kies de verdieping waar je bent en tik op de kaart waar je staat, of tik rechtsboven op "Mijn locatie".`);
+  }
+  const here = await gridFor(floor);
+  if(stale()) return;
+
+  if(floor === dest.floor){
+    const r = Route.find(here, start, dest);
+    drawRoute(r);
+    return routeCard(title, !r ? "Geen route gevonden vanaf dit punt." : r.partial ? partialText(r, floor) : walkText(meters(r, floor)));
+  }
+
+  // andere verdieping: probeer elke trap (van deze én de doelverdieping)
+  const there = await gridFor(dest.floor);
+  const candidates = [...await stairsOf(floor), ...await stairsOf(dest.floor)]
+    .filter((s, i, all) => all.findIndex(o => Math.hypot(o.lat - s.lat, (o.lng - s.lng) * 0.62) < 3e-5) === i); // dubbele (<3 m) weg
+  if(stale()) return;
+  const best = bestStairs(candidates, start, dest, here, there);
+  if(!best){ drawRoute(null); return routeCard(title, "Geen trap gevonden naar die verdieping."); }
+  via = best.s;
+  track("crossed");
+  drawRoute(best.r1);
+  const destFloor = floorLabel(dest.floor).toLowerCase();
+  routeCard(title, best.r1.partial ? partialText(best.r1, floor, "de trap")
+      : `Loop naar de trap (${walkText(meters(best.r1, floor))}) en ga naar ${destFloor}. Daarna nog ${Math.round(best.rest.m)} m${best.rest.partial ? ", het laatste stuk staat niet op de kaart" : ""}.`,
+    { label: `Ik ben op ${destFloor} →`, action: () => { manualStart = null; setFloor(dest.floor); } });
+}
+
+/* ---------------- 9. koppelen en starten ---------------- */
+// één luisteraar voor alle knoppen die via data-attributen werken (ook de knoppen die pas later in de lijst komen)
+document.addEventListener("click", e => {
+  const hit = sel => e.target.closest(sel);
+  const go = hit("[data-go]"), badge = hit("[data-badge]"), openFloor = hit("[data-open-floor]"), room = hit("[data-room]");
+  if(go){
+    showView(go.dataset.go);
+    if(go.dataset.focus) document.getElementById(go.dataset.focus).focus();
+  }
+  else if(badge) showBadge(badge.dataset.badge);
+  else if(openFloor){ showView("route"); setFloor(openFloor.dataset.openFloor); }
+  else if(room){ showView("route"); showRoom(room.dataset.floor, room.dataset.room); }
+  else if(hit("[data-locate]")) toggleLocate();
+});
+window.addEventListener("popstate", e => showView(e.state?.view || location.hash.slice(1) || "home", false));
+
+$("#buildingSearch").addEventListener("input", e => {
+  const q = searchKey(e.target.value);
+  $$(".building-row").forEach(row => row.hidden = q && !row.dataset.search.includes(q));
+});
+floorTabs.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-floor]");
+  if(btn) setFloor(btn.dataset.floor);
+});
+$("#zoomIn").addEventListener("click", () => zoomCenter(1.4));
+$("#zoomOut").addEventListener("click", () => zoomCenter(1 / 1.4));
+$("#zoomReset").addEventListener("click", fitToContainer);
+$("#routePick").addEventListener("click", () => {
+  showView("buildings");
+  $("#buildingSearch").focus();
+});
+$("#routeStop").addEventListener("click", () => {
+  store.dest = null;
+  via = null;
+  saveStore();
+  renderPin();
+  updateRoute();
+});
+$("#resetProgress").addEventListener("click", resetProgress);
+
+// de app installeren (Chrome/Android): de installatieknop verschijnt pas als de browser dat aanbiedt
 let deferredPrompt;
-const installBtn = document.querySelector("#installBtn");
+const installBtn = $("#installBtn");
 window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
   deferredPrompt = e;
   installBtn.hidden = false;
 });
-installBtn?.addEventListener("click", async () => {
+installBtn.addEventListener("click", async () => {
   if(!deferredPrompt) return;
   deferredPrompt.prompt();
   await deferredPrompt.userChoice;
@@ -690,7 +672,13 @@ window.addEventListener("appinstalled", () => {
   installBtn.hidden = true;
   showToast("Hoornbeeck Gebouwenroute is geïnstalleerd.");
 });
-
 if("serviceWorker" in navigator){
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(console.warn));
 }
+
+floorIndex.then(() => { renderLists(); renderLiveMarker(); })
+  .catch(() => { $("#buildingList").innerHTML = `<p class="map-hint">Lokalenlijst kon niet geladen worden.</p>`; });
+renderBadges();
+const firstView = location.hash.slice(1);
+showView($(`[data-view="${firstView}"]`) ? firstView : "home", false);
+setFloor("0");
