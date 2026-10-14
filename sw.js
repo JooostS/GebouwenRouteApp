@@ -1,4 +1,4 @@
-const CACHE = "hoornbeeck-route-v30"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
+const CACHE = "hoornbeeck-route-v34"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
 const ASSETS = [
   "./", "./index.html", "./style.css", "./app.js", "./route.js", "./manifest.json", "./icon.svg",
   "./assets/aula.jpg", "./assets/fonts/archivo.woff2",
@@ -13,6 +13,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if(e.request.method !== "GET") return;
   e.respondWith(caches.match(e.request).then(cached => cached || fetch(e.request).then(r => {
+    if(!r.ok) return r;
     const copy = r.clone();
     caches.open(CACHE).then(c => c.put(e.request, copy));
     return r;

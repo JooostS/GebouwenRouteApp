@@ -88,17 +88,21 @@ const Route = (() => {
       }
     }
 
-    // afstand tot de dichtstbijzijnde muur (in cellen, max 4)
-    const dist = new Uint8Array(w * h).fill(4);
-    let front = [];
-    for(let i = 0; i < w * h; i++) if(blocked[i]){ dist[i] = 0; front.push(i); }
-    for(let r = 1; r < 4 && front.length; r++){
-      const next = [];
-      for(const i of front) for(const j of [i - 1, i + 1, i - w, i + w]){
-        if(j >= 0 && j < w * h && dist[j] > r){ dist[j] = r; next.push(j); }
+    // afstand (in cellen, max 4) tot de dichtstbijzijnde cel waarvoor isEdge(i) geldt
+    const edgeDist = isEdge => {
+      const d = new Uint8Array(w * h).fill(4);
+      let front = [];
+      for(let i = 0; i < w * h; i++) if(isEdge(i)){ d[i] = 0; front.push(i); }
+      for(let r = 1; r < 4 && front.length; r++){
+        const next = [];
+        for(const i of front) for(const j of [i - 1, i + 1, i - w, i + w]){
+          if(j >= 0 && j < w * h && d[j] > r){ d[j] = r; next.push(j); }
+        }
+        front = next;
       }
-      front = next;
-    }
+      return d;
+    };
+    const dist = edgeDist(i => blocked[i]);
     // Reepjes tussen de gevel (dunne lijn) en een muur zijn geen loopruimte maar buitenlucht: de lijn liep daar langs de
     // buitenkant van het gebouw. Cellen vlak bij een muur (dist < 2) én vlak bij buiten tellen daarom als buiten.
     const near = new Uint8Array(w * h);
@@ -110,7 +114,9 @@ const Route = (() => {
       edge = next;
     }
     for(let i = 0; i < w * h; i++) if(!blocked[i] && !outside[i] && dist[i] < 2 && near[i]) outside[i] = 1;
-    return { w, h, cell, blocked, dist, outside };
+    // De rand van het gebouw (gevel, de lucht in het midden) telt vanaf hier ook als muur voor de afstand. Anders hield de
+    // lijn wel afstand tot muren maar schuurde hij langs de gevel, en liep hij in smalle gangen over de rand van de lucht.
+    return { w, h, cell, blocked, dist: edgeDist(i => blocked[i] || outside[i]), outside };
   }
 
   // dichtstbijzijnde cel binnen het gebouw die niet in een muurholte zit (minstens 2 cellen van een muur)
@@ -154,10 +160,28 @@ const Route = (() => {
     const gs = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
     const tx = t % w, ty = (t - tx) / w;
     const hfn = i => { const x = i % w, y = (i - x) / w, dx = Math.abs(x - tx), dy = Math.abs(y - ty); return Math.max(dx, dy) + 0.414 * Math.min(dx, dy); };
-    // binaire heap met [f, index]
+    // binaire min-heap met [f, index]
     const heap = [];
-    const push = (f, i) => { heap.push([f, i]); let k = heap.length - 1; while(k){ const p = (k - 1) >> 1; if(heap[p][0] <= heap[k][0]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; k = p; } };
-    const pop = () => { const top = heap[0], end = heap.pop(); if(heap.length){ heap[0] = end; let k = 0; for(;;){ const l = 2 * k + 1, r = l + 1; let m = k; if(l < heap.length && heap[l][0] < heap[m][0]) m = l; if(r < heap.length && heap[r][0] < heap[m][0]) m = r; if(m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top; };
+    const swap = (a, b) => { [heap[a], heap[b]] = [heap[b], heap[a]]; };
+    const push = (f, i) => {
+      heap.push([f, i]);
+      for(let k = heap.length - 1, p; k && heap[p = (k - 1) >> 1][0] > heap[k][0]; k = p) swap(p, k);
+    };
+    const pop = () => {
+      const top = heap[0], end = heap.pop();
+      if(heap.length){
+        heap[0] = end;
+        for(let k = 0;;){
+          const l = 2 * k + 1, r = l + 1;
+          let m = k;
+          if(l < heap.length && heap[l][0] < heap[m][0]) m = l;
+          if(r < heap.length && heap[r][0] < heap[m][0]) m = r;
+          if(m === k) break;
+          swap(m, k); k = m;
+        }
+      }
+      return top;
+    };
     const STEPS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
     gs[s] = 0; push(hfn(s), s);
     while(heap.length){
@@ -193,16 +217,18 @@ const Route = (() => {
     return cells;
   }
 
-  // vrij zicht tussen twee cellen, zonder langs muren te schuren (afstand >= 2)
-  function clear(g, a, b){
+  // rechte lijn tussen twee cellen waarop bad(i) nergens waar is
+  function lineFree(g, a, b, bad){
     const ax = a % g.w, ay = (a - ax) / g.w, bx = b % g.w, by = (b - bx) / g.w;
     const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2);
-    for(let k = 1; k < n; k++){
-      const i = Math.round(ay + (by - ay) * k / n) * g.w + Math.round(ax + (bx - ax) * k / n);
-      if(g.dist[i] < 2 || g.outside[i]) return false;
-    }
+    for(let k = 1; k < n; k++) if(bad(Math.round(ay + (by - ay) * k / n) * g.w + Math.round(ax + (bx - ax) * k / n))) return false;
     return true;
   }
+  // vrij zicht zonder langs muren te schuren (afstand >= 2) of buiten te komen
+  const clear = (g, a, b) => lineFree(g, a, b, i => g.dist[i] < 2 || g.outside[i]);
+  // alleen muren tellen, niet de afstand
+  const clearLine = (g, a, b) => lineFree(g, a, b, i => g.blocked[i]);
+  const cellCenter = (g, i) => { const x = i % g.w; return { x: (x + 0.5) * g.cell, y: ((i - x) / g.w + 0.5) * g.cell }; };
 
   // Route van punt naar punt (kaart-eenheden): { points, length, partial }, of null als je nergens heen kunt.
   // partial = de bestemming is volgens de tekening niet bereikbaar; de route stopt dan zo dichtbij als het kan.
@@ -210,16 +236,14 @@ const Route = (() => {
     const s = snap(g, from), t = snap(g, to);
     if(s < 0 || t < 0) return null;
     const cells = astar(g, s, t);
-    if(!cells) return null;
     const keep = [cells[0]];
     for(let k = 1; k < cells.length; k++){
       if(k === cells.length - 1 || !clear(g, keep[keep.length - 1], cells[k + 1])) keep.push(cells[k]);
     }
-    const pt = i => { const x = i % g.w; return { x: (x + 0.5) * g.cell, y: ((i - x) / g.w + 0.5) * g.cell }; };
     const cellAt = p => Math.floor(p.y / g.cell) * g.w + Math.floor(p.x / g.cell);
-    // het exacte begin-/eindpunt alleen aanplakken als daar geen muur tussen zit
-    const sees = (p, i) => { const c = cellAt(p); return c === i || (!g.blocked[c] && clearLine(g, c, i)); };
-    const points = keep.map(pt);
+    // het exacte begin-/eindpunt alleen aanplakken als daar geen muur tussen zit en het niet buiten (in de lucht) ligt
+    const sees = (p, i) => { const c = cellAt(p); return c === i || (!g.blocked[c] && !g.outside[c] && clearLine(g, c, i)); };
+    const points = keep.map(i => cellCenter(g, i));
     if(sees(from, cells[0])) points.unshift(from);
     if(!cells.partial && sees(to, cells[cells.length - 1])) points.push(to);
     let length = 0;
@@ -227,20 +251,10 @@ const Route = (() => {
     return { points, length, partial: !!cells.partial };
   }
 
-  // rechte lijn zonder muurcellen (strenger dan clear(): alleen muren, niet de afstand)
-  function clearLine(g, a, b){
-    const ax = a % g.w, ay = (a - ax) / g.w, bx = b % g.w, by = (b - bx) / g.w;
-    const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2);
-    for(let k = 1; k < n; k++) if(g.blocked[Math.round(ay + (by - ay) * k / n) * g.w + Math.round(ax + (bx - ax) * k / n)]) return false;
-    return true;
-  }
-
   // dichtstbijzijnde loopbare plek (binnen, niet in een muur); null als er binnen ±6 m niets is
   function nearest(g, p){
     const i = snap(g, p);
-    if(i < 0) return null;
-    const x = i % g.w;
-    return { x: (x + 0.5) * g.cell, y: ((i - x) / g.w + 0.5) * g.cell };
+    return i < 0 ? null : cellCenter(g, i);
   }
 
   return { buildGrid, find, nearest };

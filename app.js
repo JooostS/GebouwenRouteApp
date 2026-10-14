@@ -39,11 +39,12 @@ if(search){
   });
 }
 
+let toastTimer;
 function showToast(message){
   toast.textContent = message;
   toast.classList.add("show");
-  clearTimeout(window.__toast);
-  window.__toast = setTimeout(() => toast.classList.remove("show"), 2600);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
 /* ---------------- Badges: verdien je door de app te gebruiken; staat alleen in je eigen browser ---------------- */
@@ -57,6 +58,7 @@ const BADGES = [
 ];
 const XP_PER_LEVEL = 75;
 const PROGRESS_KEY = "hgr_progress";
+const STORE_KEY = "hgr_v4"; // v4: { dest } — de gekozen bestemming blijft bewaard
 const emptyProgress = () => ({ floors: [], rooms: [], located: false, crossed: false, earned: [] });
 const progress = (() => {
   try{ return { ...emptyProgress(), ...JSON.parse(localStorage.getItem(PROGRESS_KEY)) }; }
@@ -125,7 +127,7 @@ floorIndex.then(floors => {
   document.querySelector("#floorBoard").innerHTML = Object.entries(floors).sort(([a], [b]) => b - a)
     .map(([f, fl]) => `<li><button data-open-floor="${f}"><span class="num">${short(f)}</span><span class="what"><b>${fl.label}</b><small>${fl.rooms.length} lokalen</small></span><svg class="ic"><use href="#i-chev"/></svg></button></li>`).join("");
   try{
-    const d = JSON.parse(localStorage.getItem("hgr_v4"))?.dest, last = document.querySelector("#lastRoute");
+    const d = JSON.parse(localStorage.getItem(STORE_KEY))?.dest, last = document.querySelector("#lastRoute");
     if(d && floors[d.floor]){
       last.dataset.room = d.code; last.dataset.floor = d.floor; last.hidden = false;
       last.innerHTML = `<span class="code">${esc(d.code)}</span><span><b>Verder naar je laatste bestemming</b>${esc(d.name || floors[d.floor].label)}</span><svg class="ic"><use href="#i-chev"/></svg>`;
@@ -143,7 +145,7 @@ document.addEventListener("click", e => {
 });
 
 /* ---------------- Gebouwenroute: plattegrond uit de bouwtekeningen + live locatie ---------------- */
-const STORE_KEY = "hgr_v4"; // v4: { dest } — de gekozen bestemming blijft bewaard
+
 const floorSvgs = {};
 const loadFloorSvg = f => floorSvgs[f] ??= fetch(`kaarten/${f}.svg`).then(r => {
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -285,14 +287,12 @@ if(floorplanWrap && floorplanImg){
     applyTransform();
   }
 
-  document.querySelector("#zoomIn")?.addEventListener("click", () => {
+  const zoomCenter = factor => {
     const r = floorplanWrap.getBoundingClientRect();
-    zoomAt(r.left + r.width/2, r.top + r.height/2, 1.4);
-  });
-  document.querySelector("#zoomOut")?.addEventListener("click", () => {
-    const r = floorplanWrap.getBoundingClientRect();
-    zoomAt(r.left + r.width/2, r.top + r.height/2, 1/1.4);
-  });
+    zoomAt(r.left + r.width/2, r.top + r.height/2, factor);
+  };
+  document.querySelector("#zoomIn")?.addEventListener("click", () => zoomCenter(1.4));
+  document.querySelector("#zoomOut")?.addEventListener("click", () => zoomCenter(1/1.4));
   document.querySelector("#zoomReset")?.addEventListener("click", fitToContainer);
 
   floorplanWrap.addEventListener("wheel", e => {
@@ -323,15 +323,7 @@ if(floorplanWrap && floorplanImg){
       const pts = [...pointers.values()];
       const dist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1;
       const midX = (pts[0].x+pts[1].x)/2, midY = (pts[0].y+pts[1].y)/2;
-      const targetScale = Math.min(maxScale, Math.max(minScale, pinchStartScale * (dist/pinchStartDist)));
-      const wrapRect = floorplanWrap.getBoundingClientRect();
-      const px = midX - wrapRect.left, py = midY - wrapRect.top;
-      const localX = (px - tx) / scale, localY = (py - ty) / scale;
-      scale = targetScale;
-      tx = px - localX * scale;
-      ty = py - localY * scale;
-      clampPan();
-      applyTransform();
+      zoomAt(midX, midY, pinchStartScale * (dist/pinchStartDist) / scale);
       moved = true;
     } else if(pointers.size === 1 && dragStart){
       const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
@@ -675,7 +667,6 @@ if(floorplanWrap && floorplanImg){
   window.showFloor = setFloor;
   setFloor("0");
 }
-
 
 let deferredPrompt;
 const installBtn = document.querySelector("#installBtn");
