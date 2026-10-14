@@ -404,14 +404,18 @@ if(floorplanWrap && floorplanImg){
      3. tijdens een route: valt de stip binnen de meetonzekerheid van de lijn, dan zetten we hem óp de lijn
         (zoals Google Maps). Dat maakt de meting niet echt nauwkeuriger, wel bruikbaarder. */
   const fixes = [];
-  const FIX_WINDOW_MS = 12000, FIX_HALF_LIFE_MS = 5000;
+  const FIX_WINDOW_MS = 12000;
+  // Hoe lang een meting meetelt hangt af van de nauwkeurigheid: 150 ms per meter onnauwkeurigheid (gemiddelde van de
+  // laatste 3 metingen), tussen 1 en 5 s. Goed signaal = de stip volgt je snel; slecht signaal = langer middelen.
+  const halfLife = () => Math.min(5000, Math.max(1000, 150 * fixes.slice(-3).reduce((s, f) => s + f.acc, 0) / Math.min(fixes.length, 3)));
   function addFix(c){
     const now = Date.now();
     fixes.push({ lat: c.latitude, lng: c.longitude, acc: Math.max(c.accuracy || 30, 3), t: now });
     while(fixes.length && now - fixes[0].t > FIX_WINDOW_MS) fixes.shift();
+    const half = halfLife();
     let sw = 0, lat = 0, lng = 0;
     for(const f of fixes){
-      const w = Math.pow(0.5, (now - f.t) / FIX_HALF_LIFE_MS) / (f.acc * f.acc);
+      const w = Math.pow(0.5, (now - f.t) / half) / (f.acc * f.acc);
       sw += w; lat += w * f.lat; lng += w * f.lng;
     }
     const best = Math.min(...fixes.map(f => f.acc));
