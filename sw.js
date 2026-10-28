@@ -1,8 +1,8 @@
-const CACHE = "hoornbeeck-route-v36"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
+const CACHE = "hoornbeeck-route-v46"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
 const ASSETS = [
-  "./", "./index.html", "./style.css", "./app.js", "./route.js", "./manifest.json", "./icon.svg",
+  "./", "./index.html", "./style.css", "./app.js", "./route.js", "./manifest.json", "./favicon.ico", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./assets/hoornbeeck-logo.jpg",
   "./assets/aula.jpg", "./assets/fonts/archivo.woff2",
-  "./kaarten/index.json", ...["-1", "0", "1", "2", "3", "4", "5", "6"].flatMap(f => [`./kaarten/${f}.svg`, `./kaarten/${f}.nav.json`])
+  "./kaarten/index.json", ...["-1", "0", "1", "2", "3", "4", "5"].flatMap(f => [`./kaarten/${f}.svg`, `./kaarten/${f}.nav.json`])
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

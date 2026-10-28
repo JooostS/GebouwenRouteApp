@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#12161a">
   <meta name="description" content="Hoornbeeck College Gouda: zoek je lokaal en loop de kortste route.">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <link rel="preload" href="./assets/fonts/archivo.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="./style.css">
   <title>Gebouwenroute — Hoornbeeck College</title>
@@ -35,7 +36,7 @@
   <div class="app-shell">
     <header class="topbar">
       <a class="brand" href="#home" aria-label="Hoornbeeck College, naar home">
-        <span class="brand-mark" aria-hidden="true"><i></i><b></b><em></em></span>
+        <img class="brand-mark" src="./assets/hoornbeeck-logo.jpg" alt="" width="40" height="40">
         <span class="brand-name"><strong>Hoornbeeck</strong><small>Gouda</small></span>
       </a>
       <button class="icon-btn" id="installBtn" hidden aria-label="App installeren"><svg class="ic"><use href="#i-install"/></svg></button>
@@ -71,7 +72,6 @@
           <button data-floor="3" role="tab" aria-label="Verdieping 3">3</button>
           <button data-floor="4" role="tab" aria-label="Verdieping 4">4</button>
           <button data-floor="5" role="tab" aria-label="Verdieping 5">5</button>
-          <button data-floor="6" role="tab" aria-label="Verdieping 6">6</button>
         </div>
 
         <div class="floorplan-wrap" id="floorplanWrap">
@@ -98,8 +98,14 @@
             <button class="primary-btn wide" id="routeNext" hidden></button>
             <button class="ghost-btn" id="routePick">Kies bestemming</button>
             <button class="ghost-btn" id="routeStop" hidden>Stop route</button>
+            <button class="ghost-btn wide" id="routeFrom">Ik sta bij een lokaal</button>
           </div>
         </div>
+
+        <details class="steps" id="routeSteps" hidden>
+          <summary><span><b>Route in woorden</b><small id="routeStepCount"></small></span><svg class="ic"><use href="#i-chev"/></svg></summary>
+          <ol id="routeStepList"></ol>
+        </details>
 
         <div class="gps-card">
           <div class="gps-status">
@@ -117,10 +123,11 @@
       <section class="view" data-view="buildings">
         <div class="page-head">
           <button class="back-btn" data-go="home" aria-label="Terug"><svg class="ic"><use href="#i-back"/></svg></button>
-          <h1>Lokalen</h1>
+          <h1 id="buildingsTitle">Lokalen</h1>
         </div>
         <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="buildingSearch" type="search" placeholder="Bijvoorbeeld B.4.01" aria-label="Zoek een lokaal of verdieping" autocomplete="off"></div>
         <div class="building-list" id="buildingList"></div>
+        <p class="no-results" id="noResults" role="status" hidden></p>
       </section>
 
       <section class="view" data-view="badges">
@@ -185,6 +192,7 @@
     </nav>
   </div>
   <div class="toast" id="toast" role="status"></div>
+  <button class="update-bar" id="updateBtn" hidden>Nieuwe versie beschikbaar. Tik om te vernieuwen</button>
   <script src="route.js"></script>
   <script src="app.js"></script>
 </body>

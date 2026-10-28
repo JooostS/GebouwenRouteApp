@@ -35,6 +35,7 @@ function showView(name, push = true){
   $$("[data-nav]").forEach(b => b.classList.toggle("active", b.dataset.nav === name));
   if(push) history.pushState({ view: name }, "", `#${name}`);
   window.scrollTo(0, 0);
+  if(name !== "buildings") setPick(false);
   if(name === "route") requestAnimationFrame(fitFloorplan); // pas als het scherm zichtbaar is heeft de kaart een formaat
 }
 
@@ -54,12 +55,13 @@ const BADGES = [
   { id: "ontdekker", title: "Ontdekker",     xp: 50,  how: "Bekijk 3 verdiepingen",                                 done: s => s.floors.length >= 3 },
   { id: "trap",      title: "Trappenloper",  xp: 50,  how: "Zoek een route naar een andere verdieping",             done: s => s.crossed },
   { id: "lokalen",   title: "5 lokalen",     xp: 50,  how: "Kies 5 verschillende lokalen",                          done: s => s.rooms.length >= 5 },
-  { id: "gebouw",    title: "Heel gebouw",   xp: 100, how: "Bekijk alle 8 verdiepingen",                            done: s => s.floors.length >= 8 },
+  { id: "gebouw",    title: "Heel gebouw",   xp: 100, how: "Bekijk alle 7 verdiepingen",                            done: s => s.floors.length >= 7 },
 ];
 const XP_PER_LEVEL = 75;
 const PROGRESS_KEY = "hgr_progress";
 const emptyProgress = () => ({ floors: [], rooms: [], located: false, crossed: false, earned: [] });
 const progress = { ...emptyProgress(), ...load(PROGRESS_KEY, {}) };
+progress.floors = progress.floors.filter(f => +f <= 5); // verdieping 6 bestaat niet meer
 
 function renderBadges(){
   const xp = BADGES.filter(b => progress.earned.includes(b.id)).reduce((n, b) => n + b.xp, 0);
@@ -70,7 +72,7 @@ function renderBadges(){
   set("[data-xp-next]", level * XP_PER_LEVEL);
   set("[data-xp-left]", `Nog ${level * XP_PER_LEVEL - xp} XP tot level ${level + 1}`);
   set("[data-badge-count]", `${progress.earned.length} van ${BADGES.length}`);
-  set("[data-stat-floors]", `${progress.floors.length} van 8`);
+  set("[data-stat-floors]", `${progress.floors.length} van 7`);
   set("[data-stat-rooms]", progress.rooms.length);
   const bar = $("#xpBar");
   bar.style.width = (into / XP_PER_LEVEL * 100) + "%";
@@ -111,7 +113,7 @@ function resetProgress(){
 function renderLists(){
   const byFloor = dir => Object.entries(floors).sort(([a], [b]) => dir * (a - b));
   $("#buildingList").innerHTML = byFloor(1)
-    .flatMap(([f, fl]) => fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><span class="floor">${shortFloor(f)}</span><div><b>${r.code}</b><small>${fl.label}${r.name ? " · " + esc(r.name) : ""}</small></div>${icon("i-chev")}</button>`))
+    .map(([f, fl]) => `<details class="floor-group" data-floor="${f}"><summary><span class="num">${shortFloor(f)}</span><span class="what"><b>${fl.label}</b><small>${fl.rooms.length} lokalen · <span class="hint-open">tik om uit te klappen</span><span class="hint-close">tik om in te klappen</span></small></span>${icon("i-chev")}</summary>${fl.rooms.map(r => `<button class="building-row" data-room="${r.code}" data-floor="${f}" data-search="${esc(searchKey(`${r.code}|${r.name}|${fl.label}`))}"><div><b>${r.code}</b>${r.name ? `<small>${esc(r.name)}</small>` : ""}</div>${icon("i-chev")}</button>`).join("")}</details>`)
     .join("");
   // home: verdiepingsbord (hoogste bovenaan, zoals bij de lift) en de laatst gekozen bestemming
   $("#floorBoard").innerHTML = byFloor(-1)
@@ -299,7 +301,12 @@ floorplanWrap.addEventListener("pointerup", endPointer);
 floorplanWrap.addEventListener("pointercancel", e => { moved = true; endPointer(e); }); // browser pakte het gebaar over (paginascroll): geen tik
 
 /* ---------------- 6. markers: bestemming, startpunt ---------------- */
-let manualStart = null; // { floor, x, y } — getikt "hier ben ik" (als er geen GPS is)
+let manualStart = null; // { floor, x, y, label? } — getikt of via een lokaal gekozen "hier ben ik" (als er geen GPS is)
+let pickStart = false;  // de lokalenlijst kiest nu je startpunt in plaats van je bestemming
+function setPick(start){
+  pickStart = start;
+  $("#buildingsTitle").textContent = start ? "Waar sta je?" : "Lokalen";
+}
 
 function place(el, pt){
   el.hidden = !pt;
@@ -322,6 +329,20 @@ function handleTap(clientX, clientY){
   renderStart();
   updateRoute();
   $("#mapHint").textContent = "Startpunt gezet. Tik ergens anders om het te verplaatsen.";
+}
+
+// startpunt = een lokaal: handig als je weet waar je bent maar geen GPS hebt
+async function setStartRoom(f, code){
+  await floorIndex;
+  const room = floors[f]?.rooms.find(r => r.code === code);
+  if(!room) return showToast(`${code} staat niet op de plattegrond.`);
+  manualStart = { floor: String(f), x: room.x, y: room.y, label: code };
+  track("located");
+  via = null;
+  await setFloor(f);
+  await new Promise(requestAnimationFrame);
+  focusOn(room.x, room.y);
+  $("#mapHint").textContent = `Je start bij ${code}. Tik op de kaart om een ander startpunt te kiezen.`;
 }
 
 /* Bestemming kiezen: pin op het lokaal en de route ernaartoe. De kaart blijft op de verdieping
@@ -528,9 +549,43 @@ function currentStart(){
   return null;
 }
 
-function drawRoute(r){
+/* route in woorden: de lijn op de kaart als "loop 15 m tot bij A.1.04, sla linksaf en loop 8 m". De routeplanner geeft
+   alleen de hoekpunten; een bocht onder 35° telt als rechtdoor en een stuk korter dan 3 m wordt bij het volgende gevoegd.
+   Een lokaal binnen 8 m van de bocht dient als oriëntatiepunt (niet twee keer hetzelfde achter elkaar). */
+function routeSteps(pts, f, last){
+  const ppm = floors[f].geo.pxPerMeter, rooms = floors[f].rooms;
+  const landmark = p => rooms.reduce((best, r) => { const d = Math.hypot(r.x - p.x, r.y - p.y); return d < best.d ? { d, code: r.code } : best; }, { d: 8 * ppm }).code;
+  const text = (say, run, at) => `${say} ${Math.max(1, Math.round(run / ppm))} m${at ? ` tot bij ${at}` : ""}`;
+  const steps = [];
+  let run = 0, say = "Loop", lastAt = null;
+  for(let k = 1; k < pts.length - 1; k++){
+    const a = pts[k - 1], b = pts[k], c = pts[k + 1], ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y;
+    run += Math.hypot(ux, uy);
+    const turn = Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy) * 180 / Math.PI; // y wijst omlaag: positief = rechts
+    if(Math.abs(turn) < 35 || run < 3 * ppm) continue;
+    const at = landmark(b);
+    steps.push(text(say, run, at !== lastAt ? at : null));
+    lastAt = at;
+    const dir = turn > 0 ? "rechts" : "links";
+    say = Math.abs(turn) < 60 ? `Ga schuin ${dir} en loop` : `Sla ${dir}af en loop`;
+    run = 0;
+  }
+  const end = pts.length > 1 ? run + Math.hypot(pts[pts.length - 1].x - pts[pts.length - 2].x, pts[pts.length - 1].y - pts[pts.length - 2].y) : 0;
+  if(end >= 2 * ppm || !steps.length) steps.push(text(say, end, null));
+  return [...steps, last];
+}
+function renderSteps(r, f, last){
+  $("#routeSteps").hidden = !r;
+  if(!r) return;
+  const steps = routeSteps(r.points, f, last);
+  $("#routeStepCount").textContent = `${steps.length} stappen`;
+  $("#routeStepList").innerHTML = steps.map(s => `<li>${esc(s)}</li>`).join("");
+}
+
+function drawRoute(r, last){
   floorplanImg.querySelector(".mp-route")?.remove();
   const wasDrawn = !!routeLine;
+  renderSteps(r, floor, last);
   routeLine = r ? r.points : null;
   renderLiveMarker();
   if(!r) return;
@@ -580,9 +635,9 @@ async function updateRoute(){
   const seq = ++routeSeq, dest = store.dest;
   const stale = () => seq !== routeSeq; // er is intussen een nieuwere route aangevraagd
   if(!dest){ drawRoute(null); return routeCard("Waar wil je heen?", "Kies een lokaal om een route te krijgen."); }
-  const title = `Naar ${dest.code}${dest.name ? " · " + dest.name : ""}`;
   await floorIndex;
   const start = currentStart();
+  const title = `${start === manualStart && start.label ? `Van ${start.label} naar` : "Naar"} ${dest.code}${dest.name ? " · " + dest.name : ""}`;
   routedFrom = start && { floor, x: start.x, y: start.y };
   if(!start){
     drawRoute(null);
@@ -593,7 +648,7 @@ async function updateRoute(){
 
   if(floor === dest.floor){
     const r = Route.find(here, start, dest);
-    drawRoute(r);
+    drawRoute(r, r?.partial ? `Hier stopt de route op de kaart. Zoek daar de deur naar ${dest.code}.` : `Je bent bij ${dest.code}.`);
     return routeCard(title, !r ? "Geen route gevonden vanaf dit punt." : r.partial ? partialText(r, floor) : walkText(meters(r, floor)));
   }
 
@@ -606,8 +661,8 @@ async function updateRoute(){
   if(!best){ drawRoute(null); return routeCard(title, "Geen trap gevonden naar die verdieping."); }
   via = best.s;
   track("crossed");
-  drawRoute(best.r1);
   const destFloor = floorLabel(dest.floor).toLowerCase();
+  drawRoute(best.r1, best.r1.partial ? "Hier stopt de route op de kaart. Zoek daar de trap." : `Neem de trap naar ${destFloor}.`);
   routeCard(title, best.r1.partial ? partialText(best.r1, floor, "de trap")
       : `Loop naar de trap (${walkText(meters(best.r1, floor))}) en ga naar ${destFloor}. Daarna nog ${Math.round(best.rest.m)} m${best.rest.partial ? ", het laatste stuk staat niet op de kaart" : ""}.`,
     { label: `Ik ben op ${destFloor} →`, action: () => { manualStart = null; setFloor(dest.floor); } });
@@ -623,15 +678,40 @@ document.addEventListener("click", e => {
     if(go.dataset.focus) document.getElementById(go.dataset.focus).focus();
   }
   else if(badge) showBadge(badge.dataset.badge);
-  else if(openFloor){ showView("route"); setFloor(openFloor.dataset.openFloor); }
-  else if(room){ showView("route"); showRoom(room.dataset.floor, room.dataset.room); }
+  else if(openFloor) openFloorList(openFloor.dataset.openFloor); // verdiepingsbord op home: kies een lokaal op die verdieping
+  else if(room){
+    const start = pickStart;
+    showView("route");
+    if(start) setStartRoom(room.dataset.floor, room.dataset.room);
+    else showRoom(room.dataset.floor, room.dataset.room);
+  }
   else if(hit("[data-locate]")) toggleLocate();
 });
 window.addEventListener("popstate", e => showView(e.state?.view || location.hash.slice(1) || "home", false));
 
+// Lokalen-scherm met alleen deze verdieping uitgeklapt
+function openFloorList(f){
+  const search = $("#buildingSearch");
+  if(search.value){ search.value = ""; search.dispatchEvent(new Event("input")); } // een oude zoekopdracht zou groepen verbergen
+  showView("buildings");
+  $$(".floor-group").forEach(g => g.open = g.dataset.floor === f);
+  $(`.floor-group[data-floor="${f}"]`)?.scrollIntoView();
+}
+
 $("#buildingSearch").addEventListener("input", e => {
   const q = searchKey(e.target.value);
-  $$(".building-row").forEach(row => row.hidden = q && !row.dataset.search.includes(q));
+  let shown = 0;
+  $$(".floor-group").forEach(g => {
+    let hits = 0;
+    g.querySelectorAll(".building-row").forEach(row => { row.hidden = q && !row.dataset.search.includes(q); hits += !row.hidden; });
+    g.hidden = !hits;
+    g.open = !!q;
+    shown += !!hits;
+  });
+  const none = $("#noResults");
+  none.hidden = !q || shown > 0;
+  $("#buildingList").hidden = !none.hidden;
+  none.textContent = `Geen lokaal gevonden voor "${e.target.value.trim()}". Probeer bijvoorbeeld A.1.01 of een verdieping.`;
 });
 floorTabs.addEventListener("click", e => {
   const btn = e.target.closest("button[data-floor]");
@@ -642,6 +722,11 @@ $("#zoomOut").addEventListener("click", () => zoomCenter(1 / 1.4));
 $("#zoomReset").addEventListener("click", fitToContainer);
 $("#routePick").addEventListener("click", () => {
   showView("buildings");
+  $("#buildingSearch").focus();
+});
+$("#routeFrom").addEventListener("click", () => {
+  showView("buildings");
+  setPick(true);
   $("#buildingSearch").focus();
 });
 $("#routeStop").addEventListener("click", () => {
@@ -673,8 +758,15 @@ window.addEventListener("appinstalled", () => {
   showToast("Hoornbeeck Gebouwenroute is geïnstalleerd.");
 });
 if("serviceWorker" in navigator){
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(console.warn));
+  // een nieuwe service worker neemt de pagina over: de open pagina draait dan nog de oude code, dus vraag om te vernieuwen
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if(hadController) $("#updateBtn").hidden = false; });
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").then(reg => {
+    // een geïnstalleerde app blijft vaak dagen open op de achtergrond: zoek bij terugkomen naar een nieuwe versie
+    document.addEventListener("visibilitychange", () => { if(!document.hidden) reg.update().catch(() => {}); });
+  }).catch(console.warn));
 }
+$("#updateBtn").addEventListener("click", () => location.reload());
 
 floorIndex.then(() => { renderLists(); renderLiveMarker(); })
   .catch(() => { $("#buildingList").innerHTML = `<p class="map-hint">Lokalenlijst kon niet geladen worden.</p>`; });

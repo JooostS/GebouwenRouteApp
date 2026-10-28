@@ -4,7 +4,7 @@ Een installeerbare webapp (PWA) die je op het Hoornbeeck College in Gouda de weg
 
 ## Functies
 
-- **Plattegronden** van de kelder (-1) tot en met verdieping 6, gemaakt uit de officiële bouwtekeningen; zoomen en slepen met vingers of muis.
+- **Plattegronden** van de kelder (-1) tot en met verdieping 5, gemaakt uit de officiële bouwtekeningen; zoomen en slepen met vingers of muis.
 - **Lokalen zoeken**: `A.1.01`, `a1.01` en `a101` vinden hetzelfde lokaal.
 - **Routeplanner**: A* over een raster van 25 cm-cellen. Muren zijn dicht, deuren gaan open, en de route blijft netjes midden in de gang.
 - **Meerdere verdiepingen**: de app probeert elke trap en kiest de kortste totale route.
@@ -21,7 +21,7 @@ Een installeerbare webapp (PWA) die je op het Hoornbeeck College in Gouda de weg
 | `kaarten/<n>.svg` | Tekening van verdieping `n`: muren, deuren en lokaalnummers (alleen voor het oog) |
 | `kaarten/<n>.nav.json` | Originele muurlijnen voor de routeplanner; wordt pas geladen als er een route wordt gezocht |
 | `kaarten/index.json` | Per verdieping: naam, georeferentie, deuren, handmatige doorgangen en lokalen |
-| `sw.js`, `manifest.json`, `icon.svg` | Offline-cache en installeerbaarheid |
+| `sw.js`, `manifest.json`, `favicon.ico`, `icon-*.png` | Offline-cache en installeerbaarheid |
 
 ## Draaien
 
