@@ -323,7 +323,7 @@ main { padding: 16px; }
 .gps-dot.on { background: var(--groen); }
 .gps-dot.error { background: var(--rood); }
 .gps-card .ghost-btn.on { background: var(--inkt); color: #fff; border-color: var(--inkt); }
-.gps-tip { font-size: 14px; line-height: 1.5; }
+.gps-status small:empty { display: none; }
 
 /* ---------- lokalen zoeken ---------- */
 .search { gap: 10px; min-height: 52px; padding: 0 14px; margin-bottom: 12px; }

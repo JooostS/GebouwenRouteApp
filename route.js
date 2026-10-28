@@ -6,9 +6,14 @@
    Een raster is { w, h, cell, blocked, dist, outside }: één byte per cel, celnummer i = y * w + x.
      blocked  1 = muur
      outside  1 = buiten het gebouw (of de lucht in het midden): hier mag de route nooit komen
-     dist     afstand in cellen tot de dichtstbijzijnde muur of buitenrand (max 4) */
+     dist     afstand in cellen tot de dichtstbijzijnde muur of buitenrand (max 4)
+     shut     1 = deurvlak van een wc-hokje of technische ruimte: de route gebruikt zo'n deur alleen als hij daar begint of
+              eindigt, nooit om er dwars doorheen te lopen (de hokjes zouden anders een sluiproute tussen twee gangen zijn) */
 const Route = (() => {
   const CELL_M = 0.25;
+  // Een deur binnen SEAL_M van een wc- of technisch-ruimtelabel hoort bij die ruimte (zie g.shut); zo'n deur is alleen
+  // toegankelijk binnen ENDPOINT_M van het begin of eind van de route.
+  const SEAL_M = 2.5, ENDPOINT_M = 3.5;
   const WALL_COST = [0, 4, 1.5, 0.5]; // extra kosten op 0, 1, 2, 3+ cellen van een muur of de buitenrand
 
   /* ---------------- hulpjes ---------------- */
@@ -82,8 +87,10 @@ const Route = (() => {
   // Deuren: in de tekening ligt er vaak nog een dorpel of deurblad dwars over de opening, en de boog zelf is ook een lijn.
   // Daarom maken we het hele draaivlak van de deur (de kwartcirkel) vrij. doors: [cx, cy, ax, ay, bx, by] per deur
   // (scharnier + uiteinden van de deurboog, uit kaarten/index.json).
-  function openDoors(g, blocked, doors){
+  function openDoors(g, blocked, doors, shut, closedLabels){
+    const sealR = SEAL_M / CELL_M * g.cell;
     for(const [cx, cy, ax, ay, bx, by] of doors){
+      const seal = closedLabels.some(p => Math.hypot(p.x - cx, p.y - cy) <= sealR);
       const ua = [ax - cx, ay - cy], ub = [bx - cx, by - cy], r = Math.hypot(ua[0], ua[1]), R = r + g.cell;
       const turn = ua[0] * ub[1] - ua[1] * ub[0], m = g.cell * r * 0.5;
       for(let y = cy - R; y <= cy + R; y += g.cell / 2) for(let x = cx - R; x <= cx + R; x += g.cell / 2){
@@ -93,7 +100,10 @@ const Route = (() => {
         const inA = ua[0] * v[1] - ua[1] * v[0], inB = v[0] * ub[1] - v[1] * ub[0];
         if(turn > 0 ? (inA >= -m && inB >= -m) : (inA <= m && inB <= m)){
           const gx = Math.floor(x / g.cell), gy = Math.floor(y / g.cell);
-          if(inGrid(g, gx, gy)) blocked[gy * g.w + gx] = 0;
+          if(inGrid(g, gx, gy)){
+            blocked[gy * g.w + gx] = 0;
+            if(seal) shut[gy * g.w + gx] = 1;
+          }
         }
       }
     }
@@ -111,6 +121,16 @@ const Route = (() => {
     }
   }
 
+  // Labels uit de kaart-svg: closed = wc's en technische ruimtes (code met .F.): hier loop je nooit doorheen.
+  // open = al het andere (gang, trap, lift, lokalen): de verdiepingen zijn deels open ruimtes, dus die blijven doorloopbaar.
+  function labels(svgText){
+    const out = { closed: [], open: [] };
+    for(const m of svgText.matchAll(/class="mp-room (\w+)" data-code="([^"]*)" transform="translate\(([\d.]+),([\d.]+)\)"/g)){
+      (m[1] === "sanitair" || (m[1] === "lokaal" && m[2].includes(".F.")) ? out.closed : out.open).push({ x: +m[3], y: +m[4] });
+    }
+    return out;
+  }
+
   // afstand (in cellen, max 4) tot de dichtstbijzijnde cel waarvoor isEdge(i) geldt
   function edgeDist(g, isEdge){
     const d = new Uint8Array(g.w * g.h).fill(4);
@@ -125,12 +145,13 @@ const Route = (() => {
   }
 
   // walls: SVG-pad van de muren (dikke lijnen); thin: dunne lijnen (glas, kozijnen, dorpels)
-  function buildGrid(walls, thin, doors, mapW, mapH, pxPerMeter, openings = [], airSeeds = []){
+  function buildGrid(walls, thin, doors, mapW, mapH, pxPerMeter, openings = [], airSeeds = [], roomLabels = { closed: [], open: [] }){
     const cell = CELL_M * pxPerMeter;
     const g = { w: Math.ceil(mapW / cell) + 1, h: Math.ceil(mapH / cell) + 1, cell };
     const outside = floodOutside(g, rasterize(g, [walls, thin]), airSeeds);
     const blocked = rasterize(g, [walls]);
-    openDoors(g, blocked, doors);
+    const shut = new Uint8Array(g.w * g.h);
+    openDoors(g, blocked, doors, shut, roomLabels.closed);
     openOpenings(g, blocked, outside, openings);
 
     // Reepjes tussen de gevel (dunne lijn) en een muur zijn geen loopruimte maar buitenlucht: de lijn liep daar langs de
@@ -140,7 +161,7 @@ const Route = (() => {
 
     // De rand van het gebouw (gevel, de lucht in het midden) telt voor de afstand ook als muur. Anders hield de lijn wel
     // afstand tot muren maar schuurde hij langs de gevel, en liep hij in smalle gangen over de rand van de lucht.
-    return { ...g, blocked, dist: edgeDist(g, i => blocked[i] || outside[i]), outside };
+    return { ...g, blocked, dist: edgeDist(g, i => blocked[i] || outside[i]), outside, shut };
   }
 
   /* ---------------- route zoeken ---------------- */
@@ -216,7 +237,7 @@ const Route = (() => {
   const STEPS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
 
   // A* van cel s naar cel t; geeft de cellen van de route (met .partial als t niet bereikbaar was)
-  function astar(g, s, t){
+  function astar(g, s, t, barred){
     const { w, blocked, dist, outside } = g, N = w * g.h;
     const cost = new Float32Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
     const tx = col(g, t), ty = row(g, t);
@@ -231,7 +252,7 @@ const Route = (() => {
       const x = col(g, i), y = row(g, i);
       for(const [dx, dy, c] of STEPS){
         const nx = x + dx, ny = y + dy, j = ny * w + nx;
-        if(!inGrid(g, nx, ny) || closed[j] || outside[j]) continue;
+        if(!inGrid(g, nx, ny) || closed[j] || outside[j] || barred(j)) continue;
         // nooit door een muur, ook niet diagonaal tussen twee muurcellen door (zo'n schuine muur is als
         // trapje van cellen getekend); langs één muurhoek mag wel, anders sluiten smalle doorgangen
         if(blocked[j] || (dx && dy && blocked[y * w + nx] && blocked[ny * w + x])) continue;
@@ -264,7 +285,7 @@ const Route = (() => {
     return true;
   }
   // vrij zicht zonder langs muren te schuren (afstand >= 2) of buiten te komen
-  const clear = (g, a, b) => lineFree(g, a, b, i => g.dist[i] < 2 || g.outside[i]);
+  const clear = (g, a, b, barred) => lineFree(g, a, b, i => g.dist[i] < 2 || g.outside[i] || barred(i));
   // alleen muren tellen, niet de afstand
   const clearLine = (g, a, b) => lineFree(g, a, b, i => g.blocked[i]);
 
@@ -273,11 +294,15 @@ const Route = (() => {
   function find(g, from, to){
     const s = snap(g, from), t = snap(g, to);
     if(s < 0 || t < 0) return null;
-    const cells = astar(g, s, t);
+    // een wc/technische ruimte is alleen toegankelijk vlak bij het begin of eind van de route
+    const near = c => { const cx = col(g, c), cy = row(g, c), r = ENDPOINT_M / CELL_M; return i => (col(g, i) - cx) ** 2 + (row(g, i) - cy) ** 2 <= r * r; };
+    const nearS = near(s), nearT = near(t);
+    const barred = i => g.shut[i] === 1 && !nearS(i) && !nearT(i);
+    const cells = astar(g, s, t, barred);
     // onnodige tussenpunten weglaten: houd een cel alleen als je vanaf de vorige bewaarde cel niet rechtdoor kunt
     const keep = [cells[0]];
     for(let k = 1; k < cells.length; k++){
-      if(k === cells.length - 1 || !clear(g, keep[keep.length - 1], cells[k + 1])) keep.push(cells[k]);
+      if(k === cells.length - 1 || !clear(g, keep[keep.length - 1], cells[k + 1], barred)) keep.push(cells[k]);
     }
     const cellAt = p => Math.floor(p.y / g.cell) * g.w + Math.floor(p.x / g.cell);
     // het exacte begin-/eindpunt alleen aanplakken als daar geen muur tussen zit en het niet buiten (in de lucht) ligt
@@ -296,6 +321,6 @@ const Route = (() => {
     return i < 0 ? null : cellCenter(g, i);
   }
 
-  return { buildGrid, find, nearest };
+  return { buildGrid, find, nearest, labels };
 })();
 if(typeof module !== "undefined") module.exports = Route;

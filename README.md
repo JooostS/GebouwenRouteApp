@@ -6,7 +6,7 @@ Een installeerbare webapp (PWA) die je op het Hoornbeeck College in Gouda de weg
 
 - **Plattegronden** van de kelder (-1) tot en met verdieping 5, gemaakt uit de officiële bouwtekeningen; zoomen en slepen met vingers of muis.
 - **Lokalen zoeken**: de lijst is per verdieping uitklapbaar. `A.1.01`, `a1.01` en `a101` vinden hetzelfde lokaal; zoeken kan ook op naam of verdieping. Een tik op een verdieping op home opent de lijst met die verdieping uitgeklapt.
-- **Routeplanner**: A* over een raster van 25 cm-cellen. Muren zijn dicht, deuren gaan open, en de route blijft netjes midden in de gang.
+- **Routeplanner**: A* over een raster van 25 cm-cellen. Muren zijn dicht, deuren gaan open, en de route blijft netjes midden in de gang. Wc's en technische ruimtes (labels van het type sanitair of met `.F.` in de code) zijn geen doorgang: de route gebruikt hun deuren alleen als hij daar begint of eindigt.
 - **Meerdere verdiepingen**: de app probeert elke trap en kiest de kortste totale route.
 - **Startpunt**: tik op de kaart, kies een lokaal ("Ik sta bij een lokaal") of gebruik live locatie.
 - **Route in woorden**: de lijn omgezet naar stappen ("Sla rechtsaf en loop 11 m tot bij A.1.17"), met een lokaal bij de bocht als oriëntatiepunt.
@@ -57,7 +57,9 @@ Dit schrijft `kaarten/<n>.svg`, `kaarten/<n>.nav.json` en `kaarten/index.json`. 
 - Deuren herkennen aan hun boog, zodat de routeplanner er doorheen mag.
 - Lokaalnummers en namen plaatsen en per verdieping een georeferentie berekenen.
 
-Mist de tekening ergens een deur, voeg dan een handmatige doorgang toe in `OPENINGS` in `tools/kaarten-bouwen.mjs`.
+Mist de tekening ergens een deur, voeg dan een handmatige doorgang toe in `OPENINGS` in `tools/kaarten-bouwen.mjs` (en bouw de kaarten opnieuw). Op verdieping 2-4 staan al doorgangen die automatisch zijn gezocht en dus schattingen zijn; klopt er een niet, haal hem daar weg.
+
+Controleer de routeplanner na een wijziging met `npm test` (in `../tools`): routes tussen lokalen die niet naast een wc liggen mogen nooit door een wc-deur lopen en moeten aankomen.
 
 ## Een wijziging uitrollen
 

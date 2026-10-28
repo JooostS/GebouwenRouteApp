@@ -328,7 +328,7 @@ function handleTap(clientX, clientY){
   via = null;
   renderStart();
   updateRoute();
-  $("#mapHint").textContent = "Startpunt gezet. Tik ergens anders om het te verplaatsen.";
+  $("#mapHint").textContent = "Startpunt gezet.";
 }
 
 // startpunt = een lokaal: handig als je weet waar je bent maar geen GPS hebt
@@ -342,7 +342,7 @@ async function setStartRoom(f, code){
   await setFloor(f);
   await new Promise(requestAnimationFrame);
   focusOn(room.x, room.y);
-  $("#mapHint").textContent = `Je start bij ${code}. Tik op de kaart om een ander startpunt te kiezen.`;
+  $("#mapHint").textContent = `Je start bij ${code}.`;
 }
 
 /* Bestemming kiezen: pin op het lokaal en de route ernaartoe. De kaart blijft op de verdieping
@@ -445,7 +445,7 @@ function setGpsStatus(state, text, sub){
   dot.classList.remove("on", "error");
   if(state) dot.classList.add(state);
   if(text) $("#gpsStatusText").textContent = text;
-  if(sub) $("#gpsAccuracyText").textContent = sub;
+  if(sub !== undefined) $("#gpsAccuracyText").textContent = sub;
 }
 
 // GeolocationPositionError.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
@@ -479,13 +479,13 @@ function onPosition(pos){
   lastFix = addFix(pos.coords);
   if(first) track("located");
   const p = projectLatLng(lastFix.lat, lastFix.lng);
-  const acc = `± ${Math.round(lastFix.accuracy)} m (gemiddeld over ${fixes.length} meting${fixes.length === 1 ? "" : "en"}; laatste ± ${Math.round(lastFix.raw)} m)`;
+  const acc = `± ${Math.round(lastFix.accuracy)} m nauwkeurig`;
   if(p && onMap(p)){
-    setGpsStatus("on", "Live locatie actief", `${acc} · kies zelf je verdieping`);
+    setGpsStatus("on", "Live locatie actief", acc);
     if(first) focusOn(p.x, p.y);
   } else if(p){
     const dist = Math.hypot(p.x - mapW/2, p.y - mapH/2) / p.pxPerMeter;
-    setGpsStatus("on", "Je bent niet in het gebouw", `${acc} · ongeveer ${dist < 1000 ? Math.round(dist) + " m" : (dist/1000).toFixed(1) + " km"} van het Hoornbeeck`);
+    setGpsStatus("on", "Je bent niet in het gebouw", `${acc} · ongeveer ${dist < 1000 ? Math.round(dist) + " m" : (dist/1000).toFixed(1) + " km"} weg`);
   }
   renderLiveMarker();
   // een nieuwe route zoeken is zwaar: pas als je >1,5 m van het vorige startpunt staat
@@ -501,11 +501,11 @@ function onError(err){
 function toggleLocate(){
   if(gpsWatchId !== null){
     stopWatch();
-    return setGpsStatus(null, "Live locatie uitgeschakeld", "Zet je live locatie aan om jezelf als blauwe stip op de kaart te zien.");
+    return setGpsStatus(null, "Live locatie uitgeschakeld", "");
   }
   if(!("geolocation" in navigator)) return setGpsStatus("error", "Locatie niet ondersteund", "Deze browser ondersteunt de Geolocation API niet.");
-  if(!window.isSecureContext) return setGpsStatus("error", "Locatie werkt alleen via https", "Open de app via GitHub Pages (https), niet via http:// of een IP-adres.");
-  setGpsStatus(null, "Locatie zoeken…", "Even geduld, we bepalen je positie.");
+  if(!window.isSecureContext) return setGpsStatus("error", "Locatie werkt alleen via https", "Open de app via https.");
+  setGpsStatus(null, "Locatie zoeken…", "");
   setLocateUi(true);
   manualStart = null; // live locatie gaat voor een getikt startpunt
   renderStart();
@@ -528,7 +528,7 @@ let via = null; // { lat, lng } van de trap waarlangs de route naar een andere v
 const gridFor = f => grids[f] ??= Promise.all([loadFloorSvg(f), fetch(`kaarten/${f}.nav.json`).then(r => r.json()), floorIndex]).then(([text, nav]) => {
   const [, w, h] = text.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
   const fl = floors[f];
-  return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, fl.doors || [], +w, +h, fl.geo.pxPerMeter, fl.openings || [], fl.air || []);
+  return gridReady[f] = Route.buildGrid(nav.walls, nav.thin, fl.doors || [], +w, +h, fl.geo.pxPerMeter, fl.openings || [], fl.air || [], Route.labels(text));
 });
 const stairsOf = f => stairs[f] ??= loadFloorSvg(f).then(text =>
   [...text.matchAll(/class="mp-room trap" data-code="[^"]*" transform="translate\(([\d.]+),([\d.]+)\)"/g)]
@@ -539,7 +539,7 @@ const meters = (r, f) => r.length / floors[f].geo.pxPerMeter;
 const walkText = m => `${Math.round(m)} m · ± ${Math.max(1, Math.round(m / 1.3 / 60))} min lopen`;
 // de tekening mist ergens een doorgang: de lijn stopt zo dichtbij als het kan (nooit door een muur)
 const partialText = (r, f, what = "je bestemming") =>
-  `${walkText(meters(r, f))} tot zo dicht mogelijk bij ${what}. Het laatste stuk staat niet als doorgang in de bouwtekening; zoek daar de deur of volg de bordjes.`;
+  `${walkText(meters(r, f))} tot zo dicht mogelijk bij ${what}. Daarna ontbreekt de doorgang op de kaart: zoek de deur.`;
 
 function currentStart(){
   if(manualStart?.floor === floor) return manualStart;
@@ -634,14 +634,14 @@ function bestStairs(candidates, start, dest, here, there){
 async function updateRoute(){
   const seq = ++routeSeq, dest = store.dest;
   const stale = () => seq !== routeSeq; // er is intussen een nieuwere route aangevraagd
-  if(!dest){ drawRoute(null); return routeCard("Waar wil je heen?", "Kies een lokaal om een route te krijgen."); }
+  if(!dest){ drawRoute(null); return routeCard("Waar wil je heen?", "Kies een lokaal."); }
   await floorIndex;
   const start = currentStart();
   const title = `${start === manualStart && start.label ? `Van ${start.label} naar` : "Naar"} ${dest.code}${dest.name ? " · " + dest.name : ""}`;
   routedFrom = start && { floor, x: start.x, y: start.y };
   if(!start){
     drawRoute(null);
-    return routeCard(title, `${floorLabel(dest.floor)}. Kies de verdieping waar je bent en tik op de kaart waar je staat, of tik rechtsboven op "Mijn locatie".`);
+    return routeCard(title, `${floorLabel(dest.floor)}. Tik op de kaart waar je staat of kies "Ik sta bij een lokaal".`);
   }
   const here = await gridFor(floor);
   if(stale()) return;
@@ -664,7 +664,7 @@ async function updateRoute(){
   const destFloor = floorLabel(dest.floor).toLowerCase();
   drawRoute(best.r1, best.r1.partial ? "Hier stopt de route op de kaart. Zoek daar de trap." : `Neem de trap naar ${destFloor}.`);
   routeCard(title, best.r1.partial ? partialText(best.r1, floor, "de trap")
-      : `Loop naar de trap (${walkText(meters(best.r1, floor))}) en ga naar ${destFloor}. Daarna nog ${Math.round(best.rest.m)} m${best.rest.partial ? ", het laatste stuk staat niet op de kaart" : ""}.`,
+      : `Naar de trap: ${walkText(meters(best.r1, floor))}. Daarna nog ${Math.round(best.rest.m)} m${best.rest.partial ? ", laatste stuk niet op de kaart" : ""}.`,
     { label: `Ik ben op ${destFloor} →`, action: () => { manualStart = null; setFloor(dest.floor); } });
 }
 
