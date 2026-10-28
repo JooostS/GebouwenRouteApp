@@ -1,4 +1,4 @@
-const CACHE = "hoornbeeck-route-v46"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
+const CACHE = "hoornbeeck-route-v47"; // ophogen bij elke wijziging, anders blijft de oude versie in de cache
 const ASSETS = [
   "./", "./index.html", "./style.css", "./app.js", "./route.js", "./manifest.json", "./favicon.ico", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png", "./assets/hoornbeeck-logo.jpg",
   "./assets/aula.jpg", "./assets/fonts/archivo.woff2",

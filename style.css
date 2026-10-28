@@ -363,8 +363,16 @@ main { padding: 16px; }
 .fine { font-size: 13px; margin-top: 12px; }
 .howto h2 { margin: 24px 0 8px; }
 .howto h2:first-child { margin-top: 0; }
-.howto ol { margin: 0; padding-left: 22px; color: var(--grijs); line-height: 1.55; }
-.howto li + li { margin-top: 6px; }
+.howto { margin-top: 28px; }
+.lead { margin: 0 0 4px; font-size: 16px; line-height: 1.5; }
+.guide-body { padding: 14px 16px 16px; }
+.guide-body > :last-child { margin-bottom: 0; }
+.guide-body h3 { margin: 16px 0 4px; font-size: 17px; }
+.guide-body > h3:first-child { margin-top: 0; }
+.guide-body p { margin: 0 0 10px; line-height: 1.55; }
+.guide-body ol, .guide-body ul { margin: 0 0 10px; padding: 0 0 0 22px; line-height: 1.55; }
+.guide-body li { padding: 3px 0; }
+.guide-body .tip { padding: 10px 12px; background: var(--teal-licht); border-left: 4px solid var(--teal); color: var(--inkt); }
 .howto p { line-height: 1.55; }
 
 /* ---------- melding (toast) ---------- */
